@@ -478,6 +478,13 @@ function ThreadRouteContent(
   const handleOpenConnectionEditor = useCallback(() => {
     void navigation.navigate("Connections");
   }, [navigation]);
+  const handleOpenTodos = useCallback(() => {
+    if (!selectedThread || !selectedThreadProject) return;
+    navigation.navigate("ProjectTodos", {
+      environmentId: String(selectedThread.environmentId),
+      projectId: String(selectedThreadProject.id),
+    });
+  }, [navigation, selectedThread, selectedThreadProject]);
   const handleStopThread = useCallback(() => {
     if (
       !selectedThread ||
@@ -630,6 +637,7 @@ function ThreadRouteContent(
     terminalSessions: terminalMenuSessions,
     showDirectFileControl: layout.usesSplitView,
     onOpenTerminal: handleOpenTerminal,
+    onOpenTodos: handleOpenTodos,
     onOpenNewTerminal: handleOpenNewTerminal,
     onRunProjectScript: handleRunProjectScript,
     onPull: gitActions.onPullSelectedThreadBranch,
@@ -689,6 +697,13 @@ function ThreadRouteContent(
         onPress: props.onReturnToThread,
       });
     }
+    if (selectedThreadProject) {
+      actions.push({
+        accessibilityLabel: "Open project tasks and notes",
+        icon: "doc.text",
+        onPress: handleOpenTodos,
+      });
+    }
     if (selectedThreadCwd !== null) {
       actions.push({
         accessibilityLabel: "Open files",
@@ -719,11 +734,13 @@ function ThreadRouteContent(
   }, [
     fileInspector.supported,
     handleOpenFilesInspector,
+    handleOpenTodos,
     handleOpenTerminal,
     handleOpenGitInspector,
     handleToggleInspector,
     props.onReturnToThread,
     selectedThreadCwd,
+    selectedThreadProject,
     selectedThreadProject?.workspaceRoot,
   ]);
 

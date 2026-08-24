@@ -58,6 +58,9 @@ function makeDatabase() {
     inspectCaches: Effect.succeed([]),
     loadPreferencesJson: Effect.succeed(Option.none()),
     savePreferencesJson: () => Effect.void,
+    loadProjectTodos: Effect.succeed([]),
+    saveProjectTodo: () => Effect.void,
+    removeProjectTodo: () => Effect.void,
   });
   return { database, removed, values };
 }

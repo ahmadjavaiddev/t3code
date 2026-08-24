@@ -58,6 +58,7 @@ import { SettingsEnvironmentsRouteScreen } from "./features/settings/SettingsEnv
 import { SettingsLegalRouteScreen } from "./features/settings/SettingsLegalRouteScreen";
 import { SettingsProjectGroupingRouteScreen } from "./features/settings/SettingsProjectGroupingRouteScreen";
 import { UsageRouteScreen } from "./features/usage/UsageRouteScreen";
+import { ProjectTodosRouteScreen } from "./features/todos/ProjectTodosRouteScreen";
 import { SettingsRouteScreen } from "./features/settings/SettingsRouteScreen";
 import { ShowcaseCaptureCoordinator } from "./features/showcase/ShowcaseCaptureCoordinator";
 import {
@@ -338,6 +339,7 @@ const WORKSPACE_OVERLAY_ROUTES = new Set([
   "GitConfirm",
   "GitOverview",
   "NewTaskSheet",
+  "ProjectTodos",
   "SettingsLegal",
   "SettingsSheet",
   "ThreadReviewComment",
@@ -521,6 +523,21 @@ export const RootStack = createNativeStackNavigator({
           : {
               ...FORM_SHEET_PRESENTATION_OPTIONS,
               sheetAllowedDetents: [1],
+              sheetGrabberVisible: true,
+            }),
+      },
+    }),
+    ProjectTodos: createNativeStackScreen({
+      screen: ProjectTodosRouteScreen,
+      linking: "todos",
+      options: {
+        title: "Tasks & notes",
+        gestureEnabled: true,
+        ...(Platform.OS === "android"
+          ? { presentation: "card" as const, headerShown: false }
+          : {
+              ...FORM_SHEET_PRESENTATION_OPTIONS,
+              sheetAllowedDetents: [0.7, 0.92],
               sheetGrabberVisible: true,
             }),
       },

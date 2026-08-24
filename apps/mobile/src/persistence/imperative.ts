@@ -1,11 +1,13 @@
 import * as Effect from "effect/Effect";
 
 import { runtime } from "../lib/runtime";
+import * as MobileDatabase from "./mobile-database";
 import * as MobilePreferences from "./mobile-preferences";
 import * as MobileStorage from "./mobile-storage";
 
 export type { Preferences } from "./mobile-preferences";
 export type { AgentAwarenessRegistrationRecord, RecentThreadShortcut } from "./mobile-storage";
+export type { StoredProjectTodo } from "./mobile-database";
 export { MobilePreferencesLoadError, MobilePreferencesSaveError } from "./mobile-preferences";
 export {
   MobileDeviceIdGenerationError,
@@ -21,6 +23,10 @@ const runStorage = <A, E>(
 const runPreferences = <A, E>(
   use: (store: MobilePreferences.MobilePreferencesStore["Service"]) => Effect.Effect<A, E>,
 ) => runtime.runPromise(MobilePreferences.MobilePreferencesStore.pipe(Effect.flatMap(use)));
+
+const runDatabase = <A, E>(
+  use: (database: MobileDatabase.MobileDatabase["Service"]) => Effect.Effect<A, E>,
+) => runtime.runPromise(MobileDatabase.MobileDatabase.pipe(Effect.flatMap(use)));
 
 export const loadSavedConnections = () => runStorage((storage) => storage.loadSavedConnections);
 export const saveConnection = (
@@ -51,3 +57,9 @@ export const loadRecentThreadShortcuts = () =>
 export const saveRecentThreadShortcuts = (
   threads: ReadonlyArray<MobileStorage.RecentThreadShortcut>,
 ) => runStorage((storage) => storage.saveRecentThreadShortcuts(threads));
+
+export const loadProjectTodos = () => runDatabase((database) => database.loadProjectTodos);
+export const saveProjectTodo = (todo: MobileDatabase.StoredProjectTodo) =>
+  runDatabase((database) => database.saveProjectTodo(todo));
+export const removeProjectTodo = (id: string) =>
+  runDatabase((database) => database.removeProjectTodo(id));
