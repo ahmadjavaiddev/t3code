@@ -20,6 +20,7 @@ interface ProjectTodoContextValue {
   readonly error: Error | null;
   readonly addTodo: (text: string, project: EnvironmentProject) => Promise<boolean>;
   readonly toggleTodo: (todo: ProjectTodo) => Promise<void>;
+  readonly updateTodo: (todo: ProjectTodo, text: string) => Promise<boolean>;
   readonly deleteTodo: (todo: ProjectTodo) => Promise<void>;
   readonly dismissError: () => void;
 }
@@ -109,6 +110,21 @@ export function ProjectTodoProvider(props: PropsWithChildren) {
     [persist],
   );
 
+  const updateTodo = useCallback(
+    async (todo: ProjectTodo, text: string) => {
+      const normalizedText = text.trim();
+      if (!normalizedText) return false;
+      const updated = { ...todo, text: normalizedText, updatedAt: Date.now() };
+      setTodos((current) =>
+        sortProjectTodos(
+          current.map((candidate) => (candidate.id === todo.id ? updated : candidate)),
+        ),
+      );
+      return persist(() => saveProjectTodo(updated));
+    },
+    [persist],
+  );
+
   const deleteTodo = useCallback(
     async (todo: ProjectTodo) => {
       setTodos((current) => current.filter((candidate) => candidate.id !== todo.id));
@@ -119,8 +135,8 @@ export function ProjectTodoProvider(props: PropsWithChildren) {
 
   const dismissError = useCallback(() => setError(null), []);
   const value = useMemo<ProjectTodoContextValue>(
-    () => ({ todos, isLoading, error, addTodo, toggleTodo, deleteTodo, dismissError }),
-    [addTodo, deleteTodo, dismissError, error, isLoading, todos, toggleTodo],
+    () => ({ todos, isLoading, error, addTodo, toggleTodo, updateTodo, deleteTodo, dismissError }),
+    [addTodo, deleteTodo, dismissError, error, isLoading, todos, toggleTodo, updateTodo],
   );
 
   return <ProjectTodoContext.Provider value={value}>{props.children}</ProjectTodoContext.Provider>;
