@@ -89,6 +89,7 @@ const ANDROID_ICON_BY_SF_SYMBOL: Partial<Record<SFSymbol, Icon>> = {
   "arrow.down.circle": IconArrowDownCircle,
   "arrow.right.circle": IconArrowRightCircle,
   "arrow.triangle.branch": IconGitBranch,
+  "arrow.triangle.2.circlepath": IconRefresh,
   "arrow.triangle.pull": IconGitPullRequest,
   "arrow.turn.left.up": IconArrowBackUp,
   "arrow.up": IconArrowUp,

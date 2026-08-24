@@ -87,6 +87,7 @@ import {
   THREAD_LIST_V2_SETTLED_PAGE_COUNT,
   type ThreadListV2ListItem,
 } from "./threadListV2";
+import { resolveThreadCompletionVisitedAt } from "./thread-completion";
 
 /** The sidebar list serves both lists: v1 grouped items or, when the Thread
     List v2 beta is on, flat v2 rows with queued tasks spliced in, and a settled
@@ -224,6 +225,12 @@ function ThreadNavigationSidebarPane(
   const autoSettleOnMerge =
     !AsyncResult.isSuccess(preferencesResult) ||
     preferencesResult.value.autoSettleOnMerge !== false;
+  const threadLastVisitedAtById = AsyncResult.isSuccess(preferencesResult)
+    ? (preferencesResult.value.threadLastVisitedAtById ?? {})
+    : {};
+  const threadCompletionTrackingStartedAt = AsyncResult.isSuccess(preferencesResult)
+    ? preferencesResult.value.threadCompletionTrackingStartedAt
+    : undefined;
   const pendingTasks = usePendingNewTasks();
   const { openPendingTask, confirmDeletePendingTask } = usePendingTaskListActions();
   const environments = useMemo(
@@ -835,6 +842,8 @@ function ThreadNavigationSidebarPane(
       savedConnectionsById,
       serverConfigs,
       snoozePresetMinute: nowMinute,
+      threadCompletionTrackingStartedAt,
+      threadLastVisitedAtById,
       threadSearchMatchByKey,
     }),
     [
@@ -845,6 +854,8 @@ function ThreadNavigationSidebarPane(
       savedConnectionsById,
       serverConfigs,
       nowMinute,
+      threadCompletionTrackingStartedAt,
+      threadLastVisitedAtById,
       threadSearchMatchByKey,
     ],
   );
@@ -970,6 +981,11 @@ function ThreadNavigationSidebarPane(
                 }),
               )}
               searchQuery={props.searchQuery}
+              lastVisitedAt={resolveThreadCompletionVisitedAt(
+                threadLastVisitedAtById,
+                scopedThreadKey(thread.environmentId, thread.id),
+                threadCompletionTrackingStartedAt,
+              )}
               pane="sidebar"
               selected={
                 scopedThreadKey(thread.environmentId, thread.id) === props.selectedThreadKey
@@ -1092,6 +1108,11 @@ function ThreadNavigationSidebarPane(
                 }),
               )}
               searchQuery={props.searchQuery}
+              lastVisitedAt={resolveThreadCompletionVisitedAt(
+                threadLastVisitedAtById,
+                scopedThreadKey(thread.environmentId, thread.id),
+                threadCompletionTrackingStartedAt,
+              )}
               selected={
                 scopedThreadKey(thread.environmentId, thread.id) === props.selectedThreadKey
               }
@@ -1144,6 +1165,8 @@ function ThreadNavigationSidebarPane(
       props.width,
       savedConnectionsById,
       serverConfigs,
+      threadCompletionTrackingStartedAt,
+      threadLastVisitedAtById,
       threadSearchMatchByKey,
       titleRegenerationEnvironmentIds,
       settleThread,
