@@ -425,6 +425,8 @@ export const ThreadListRow = memo(function ThreadListRow(props: {
   readonly isLast: boolean;
   /** Sidebar only: the thread currently open in the detail pane. */
   readonly selected?: boolean;
+  /** Latest completion this device has viewed. Drives the transient Done label. */
+  readonly lastVisitedAt?: string;
   /** Defaults to window width minus compact margins. */
   readonly fullSwipeWidth?: number;
   readonly onSelectThread: (thread: EnvironmentThreadShell) => void;
@@ -463,7 +465,10 @@ export const ThreadListRow = memo(function ThreadListRow(props: {
     onRenameThread,
     onRegenerateThreadTitle,
   } = props;
-  const status = resolveThreadStatus(thread);
+  const status = resolveThreadStatus(
+    thread,
+    selected ? (thread.latestTurn?.completedAt ?? props.lastVisitedAt) : props.lastVisitedAt,
+  );
   const pr = useThreadPr(thread, props.projectCwd);
   const timestamp = relativeTime(
     thread.latestUserMessageAt ?? thread.updatedAt ?? thread.createdAt,
