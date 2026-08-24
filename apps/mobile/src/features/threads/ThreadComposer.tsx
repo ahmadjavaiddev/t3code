@@ -48,6 +48,7 @@ import {
 } from "../../components/ComposerEditor";
 import {
   ComposerInlineControl,
+  ComposerSelectControl,
   ComposerToolbarButton,
   ComposerToolbarRow,
   ComposerToolbarScroller,
@@ -64,7 +65,16 @@ import {
   normalizeSearchQuery,
   scoreQueryMatch,
 } from "@t3tools/shared/searchRanking";
-import { resolveProviderOptionDescriptors } from "../../lib/providerOptions";
+import {
+  applyProviderOptionSelection,
+  findReasoningOptionDescriptor,
+  resolveProviderOptionDescriptors,
+} from "../../lib/providerOptions";
+import {
+  getProviderOptionCurrentLabel,
+  getProviderOptionCurrentValue,
+} from "@t3tools/shared/model";
+import { selectableChoices } from "./thread-settings-options";
 import { useComposerPathSearch } from "../../state/use-composer-path-search";
 import { ComposerCommandPopover, type ComposerCommandItem } from "./ComposerCommandPopover";
 import { matchesSlashSkillQuery } from "./composerSlashSkillSearch";
@@ -644,6 +654,10 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
       }),
     [currentModelOption?.capabilities, currentModelSelection.options],
   );
+  const reasoningDescriptor = findReasoningOptionDescriptor(providerOptionDescriptors);
+  const reasoningValue = reasoningDescriptor
+    ? getProviderOptionCurrentValue(reasoningDescriptor)
+    : null;
   const settingsOwnerId = scopedThreadKey(props.environmentId, props.selectedThread.id);
   const settingsRouteSession = useMemo<ExistingThreadSettingsRouteSession>(
     () => ({
@@ -895,6 +909,23 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                   maxWidth={152}
                   onPress={openSettings}
                 />
+                {reasoningDescriptor ? (
+                  <ComposerSelectControl
+                    accessibilityLabel={`Reasoning: ${getProviderOptionCurrentLabel(reasoningDescriptor) ?? "Choose level"}`}
+                    label={getProviderOptionCurrentLabel(reasoningDescriptor) ?? "Reasoning"}
+                    onSelect={(value) => {
+                      const options = applyProviderOptionSelection(providerOptionDescriptors, {
+                        id: reasoningDescriptor.id,
+                        value,
+                      });
+                      if (options) {
+                        props.onUpdateModelSelection({ ...currentModelSelection, options });
+                      }
+                    }}
+                    options={selectableChoices(reasoningDescriptor)}
+                    selectedId={typeof reasoningValue === "string" ? reasoningValue : null}
+                  />
+                ) : null}
                 {showStopAction ? (
                   <ComposerToolbarButton
                     accessibilityLabel="Stop"

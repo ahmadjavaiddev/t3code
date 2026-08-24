@@ -1,3 +1,4 @@
+import type { MenuAction } from "@react-native-menu/menu";
 import type { ComponentProps, ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -16,6 +17,7 @@ import { useAppearancePreferences } from "../features/settings/appearance/Appear
 import { themeColorWithAlpha } from "../lib/mobileTheme";
 import { cn } from "../lib/cn";
 import { AppText as Text } from "./AppText";
+import { ControlPillMenu } from "./ControlPill";
 import { SymbolView } from "./AppSymbol";
 
 const COMPOSER_TOOLBAR_GAP = 8;
@@ -82,6 +84,43 @@ export function ComposerInlineControl(props: {
         />
       )}
     </Pressable>
+  );
+}
+
+export function ComposerSelectControl(props: {
+  readonly accessibilityLabel: string;
+  readonly disabled?: boolean;
+  readonly label: string;
+  readonly options: ReadonlyArray<{ readonly id: string; readonly label: string }>;
+  readonly selectedId: string | null;
+  readonly onSelect: (id: string) => void;
+}) {
+  const actions: MenuAction[] = props.options.map((option) => ({
+    id: option.id,
+    title: option.label,
+    state: option.id === props.selectedId ? "on" : "off",
+  }));
+  const control = (
+    <ComposerInlineControl
+      accessibilityLabel={props.accessibilityLabel}
+      disabled={props.disabled}
+      emphasized
+      label={props.label}
+      maxWidth={112}
+    />
+  );
+
+  if (props.disabled) {
+    return control;
+  }
+
+  return (
+    <ControlPillMenu
+      actions={actions}
+      onPressAction={({ nativeEvent }) => props.onSelect(nativeEvent.event)}
+    >
+      {control}
+    </ControlPillMenu>
   );
 }
 

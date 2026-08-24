@@ -4,6 +4,7 @@ import type { ModelCapabilities } from "@t3tools/contracts";
 
 import {
   applyProviderOptionSelection,
+  findReasoningOptionDescriptor,
   providerOptionValueLabels,
   resolveProviderOptionDescriptors,
 } from "./providerOptions";
@@ -41,6 +42,33 @@ describe("mobile provider options", () => {
     });
 
     expect(providerOptionValueLabels(descriptors)).toEqual(["Medium", "Standard"]);
+  });
+
+  it("finds the provider-advertised reasoning selector", () => {
+    const descriptors = resolveProviderOptionDescriptors({
+      capabilities: CODEX_CAPABILITIES,
+      selections: undefined,
+    });
+
+    expect(findReasoningOptionDescriptor(descriptors)?.id).toBe("reasoningEffort");
+  });
+
+  it("finds reasoning by its provider-specific id when the display label differs", () => {
+    const descriptors = resolveProviderOptionDescriptors({
+      capabilities: {
+        optionDescriptors: [
+          {
+            id: "reasoning",
+            label: "Thinking effort",
+            type: "select",
+            options: [{ id: "high", label: "High", isDefault: true }],
+          },
+        ],
+      },
+      selections: undefined,
+    });
+
+    expect(findReasoningOptionDescriptor(descriptors)?.id).toBe("reasoning");
   });
 
   it("updates generic select options without knowing provider-specific ids", () => {
