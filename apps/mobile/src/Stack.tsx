@@ -56,6 +56,7 @@ import { SettingsClientStorageRouteScreen } from "./features/settings/SettingsCl
 import { SettingsAuthRouteScreen } from "./features/settings/SettingsAuthRouteScreen";
 import { SettingsEnvironmentsRouteScreen } from "./features/settings/SettingsEnvironmentsRouteScreen";
 import { SettingsLegalRouteScreen } from "./features/settings/SettingsLegalRouteScreen";
+import { SettingsLegacyRouteScreen } from "./features/settings/SettingsLegacyRouteScreen";
 import { SettingsProjectGroupingRouteScreen } from "./features/settings/SettingsProjectGroupingRouteScreen";
 import { UsageRouteScreen } from "./features/usage/UsageRouteScreen";
 import { ProjectTodosRouteScreen } from "./features/todos/ProjectTodosRouteScreen";
@@ -192,6 +193,13 @@ const SettingsContentStack = createNativeStackNavigator({
       linking: "project-grouping",
       options: {
         title: "Project Grouping",
+      },
+    }),
+    SettingsLegacy: createNativeStackScreen({
+      screen: SettingsLegacyRouteScreen,
+      linking: "legacy",
+      options: {
+        title: "Legacy",
       },
     }),
     SettingsClientStorage: createNativeStackScreen({

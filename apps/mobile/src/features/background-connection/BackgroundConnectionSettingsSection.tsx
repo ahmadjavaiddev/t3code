@@ -1,3 +1,5 @@
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { AsyncResult } from "effect/unstable/reactivity";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, AppState, Platform, Pressable, View } from "react-native";
 
@@ -9,6 +11,7 @@ import {
   setBackgroundConnectionEnabled,
   type BackgroundConnectionStatus,
 } from "../../native/backgroundConnection";
+import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { SettingsSection } from "../settings/components/SettingsSection";
 import { SettingsSwitchRow } from "../settings/components/SettingsSwitchRow";
 import {
@@ -29,7 +32,9 @@ function promptForBatteryExemption(
   );
 }
 
-export function BackgroundConnectionSettingsSection() {
+export function SyncSettingsSection() {
+  const preferencesResult = useAtomValue(mobilePreferencesAtom);
+  const savePreferences = useAtomSet(updateMobilePreferencesAtom);
   const [status, setStatus] = useState(getBackgroundConnectionStatus);
   const [changing, setChanging] = useState(false);
 
@@ -73,45 +78,60 @@ export function BackgroundConnectionSettingsSection() {
     [changing, requestExemption],
   );
 
-  if (Platform.OS !== "android") {
-    return null;
-  }
-
   const statusLabel = backgroundConnectionStatusLabel(status);
   const canRetryBatteryExemption = shouldRequestBackgroundConnectionBatteryExemption(status);
+  const syncWorkingThreadMessages =
+    AsyncResult.isSuccess(preferencesResult) &&
+    preferencesResult.value.syncWorkingThreadMessages === true;
 
   return (
     <View className="gap-3">
-      <SettingsSection title="Background connection">
+      <SettingsSection title="Sync">
         <SettingsSwitchRow
-          disabled={!status.supported || changing}
-          icon="bolt.horizontal.circle"
-          label="Keep connected in background"
-          value={status.enabled}
-          onValueChange={(enabled) => void handleEnabledChange(enabled)}
+          icon="arrow.triangle.2.circlepath"
+          label="Sync Working Threads"
+          value={syncWorkingThreadMessages}
+          onValueChange={(value) => savePreferences({ syncWorkingThreadMessages: value })}
         />
-        <View className="border-t border-border px-4 py-3">
-          {canRetryBatteryExemption ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => void requestExemption()}
-              className="py-1"
-            >
-              <Text className="text-sm font-t3-medium text-foreground">{statusLabel}</Text>
-              <Text className="mt-1 text-sm text-foreground-muted">
-                Tap to allow unrestricted battery use.
-              </Text>
-            </Pressable>
-          ) : (
-            <Text className="text-sm font-t3-medium text-foreground-muted">{statusLabel}</Text>
-          )}
-        </View>
+        {Platform.OS === "android" ? (
+          <>
+            <SettingsSwitchRow
+              disabled={!status.supported || changing}
+              icon="bolt.horizontal.circle"
+              label="Keep connected in background"
+              value={status.enabled}
+              onValueChange={(enabled) => void handleEnabledChange(enabled)}
+            />
+            <View className="border-t border-border px-4 py-3">
+              {canRetryBatteryExemption ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => void requestExemption()}
+                  className="py-1"
+                >
+                  <Text className="text-sm font-t3-medium text-foreground">{statusLabel}</Text>
+                  <Text className="mt-1 text-sm text-foreground-muted">
+                    Tap to allow unrestricted battery use.
+                  </Text>
+                </Pressable>
+              ) : (
+                <Text className="text-sm font-t3-medium text-foreground-muted">{statusLabel}</Text>
+              )}
+            </View>
+          </>
+        ) : null}
       </SettingsSection>
-      <Text className="px-2 text-sm leading-normal text-foreground-muted">
-        Keeps environment thread lists synchronized while your phone is locked or another app is
-        open. This can noticeably increase battery use, and Android will show a silent ongoing
-        service status.
-      </Text>
+      {Platform.OS === "android" ? (
+        <Text className="px-2 text-sm leading-normal text-foreground-muted">
+          Keeps environment thread lists synchronized while your phone is locked or another app is
+          open. This can noticeably increase battery use, and Android will show a silent ongoing
+          service status.
+        </Text>
+      ) : null}
     </View>
   );
 }
+
+// Retained for focused background-connection tests and callers that only care
+// about the Android behavior now presented inside the broader Sync section.
+export const BackgroundConnectionSettingsSection = SyncSettingsSection;

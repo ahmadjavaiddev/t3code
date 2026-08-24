@@ -35,6 +35,10 @@ vi.mock("react-native", () => ({
   View: "View",
 }));
 
+vi.mock("@effect/atom-react", () => ({
+  useAtomSet: () => vi.fn(),
+  useAtomValue: () => ({ _tag: "Success", value: {} }),
+}));
 vi.mock("../../components/AppText", () => ({ AppText: "Text" }));
 vi.mock("../settings/components/SettingsSection", () => ({
   SettingsSection: "SettingsSection",
@@ -49,6 +53,10 @@ vi.mock("../../native/backgroundConnection", () => ({
   getBackgroundConnectionStatus: () => native.status,
   requestBackgroundConnectionBatteryOptimizationExemption: native.requestExemption,
   setBackgroundConnectionEnabled: native.setEnabled,
+}));
+vi.mock("../../state/preferences", () => ({
+  mobilePreferencesAtom: {},
+  updateMobilePreferencesAtom: {},
 }));
 
 import { BackgroundConnectionSettingsSection } from "./BackgroundConnectionSettingsSection";
@@ -69,7 +77,8 @@ function children(node: unknown): ReadonlyArray<unknown> {
 function renderSwitch(): ElementNode {
   const root = BackgroundConnectionSettingsSection();
   const section = children(root)[0];
-  return children(section)[0] as ElementNode;
+  const androidRows = children(section)[1];
+  return children(androidRows)[0] as ElementNode;
 }
 
 function status(overrides: Partial<BackgroundConnectionStatus> = {}): BackgroundConnectionStatus {

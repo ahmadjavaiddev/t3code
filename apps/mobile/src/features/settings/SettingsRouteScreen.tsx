@@ -35,7 +35,6 @@ import { WorkspaceSidebarToolbar } from "../layout/workspace-sidebar-toolbar";
 import { runtime } from "../../lib/runtime";
 import { useThemeColor } from "../../lib/useThemeColor";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
-import { useThreadListV2Enabled } from "../threads/use-thread-list-v2-enabled";
 import {
   type AppUpdateCheckState,
   isAppUpdateCheckAvailable,
@@ -43,7 +42,7 @@ import {
   runAppUpdateCheck,
 } from "../updates/app-updates";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
-import { BackgroundConnectionSettingsSection } from "../background-connection/BackgroundConnectionSettingsSection";
+import { SyncSettingsSection } from "../background-connection/BackgroundConnectionSettingsSection";
 import { SettingsRow } from "./components/SettingsRow";
 import { SettingsSection } from "./components/SettingsSection";
 import { SettingsSwitchRow } from "./components/SettingsSwitchRow";
@@ -128,15 +127,11 @@ function LocalSettingsRouteScreen() {
 
         <GeneralSettingsSection />
 
-        <BackgroundConnectionSettingsSection />
+        <SyncSettingsSection />
 
         <SettingsSection title="Appearance">
           <SettingsRow icon="paintbrush" label="Appearance" target="SettingsAppearance" />
         </SettingsSection>
-
-        <LegacySettingsSection />
-
-        <ArchivedThreadsSettingsSection />
 
         <AppSettingsSection />
       </ScrollView>
@@ -516,15 +511,11 @@ function ConfiguredSettingsRouteScreen() {
 
         <GeneralSettingsSection />
 
-        <BackgroundConnectionSettingsSection />
+        <SyncSettingsSection />
 
         <SettingsSection title="Appearance">
           <SettingsRow icon="paintbrush" label="Appearance" target="SettingsAppearance" />
         </SettingsSection>
-
-        <LegacySettingsSection />
-
-        <ArchivedThreadsSettingsSection />
 
         <AppSettingsSection />
       </ScrollView>
@@ -538,19 +529,11 @@ function GeneralSettingsSection() {
   const autoSettleOnMerge =
     !AsyncResult.isSuccess(preferencesResult) ||
     preferencesResult.value.autoSettleOnMerge !== false;
-  const syncWorkingThreadMessages =
-    AsyncResult.isSuccess(preferencesResult) &&
-    preferencesResult.value.syncWorkingThreadMessages === true;
-
   return (
     <SettingsSection title="General">
       <SettingsRow icon="folder" label="Project Grouping" target="SettingsProjectGrouping" />
-      <SettingsSwitchRow
-        icon="arrow.triangle.2.circlepath"
-        label="Sync Working Threads"
-        value={syncWorkingThreadMessages}
-        onValueChange={(value) => savePreferences({ syncWorkingThreadMessages: value })}
-      />
+      <SettingsRow icon="slider.horizontal.3" label="Legacy" target="SettingsLegacy" />
+      <SettingsRow icon="archivebox" label="Archived Threads" target="SettingsArchive" />
       <SettingsSwitchRow
         icon="arrow.triangle.branch"
         label="Auto-settle merged threads"
@@ -559,42 +542,6 @@ function GeneralSettingsSection() {
       />
       <SettingsRow icon="chart.bar.xaxis" label="Usage" target="SettingsUsage" />
     </SettingsSection>
-  );
-}
-
-/**
- * Device-local legacy toggles. Mobile has no client-settings sync, so this is
- * the counterpart of web's Settings → General → Legacy features backed by
- * mobile preferences.
- */
-function LegacySettingsSection() {
-  const savePreferences = useAtomSet(updateMobilePreferencesAtom);
-  const preferences = useAtomValue(mobilePreferencesAtom);
-  const threadListV2Enabled = useThreadListV2Enabled();
-  const planModeEnabled =
-    AsyncResult.isSuccess(preferences) && preferences.value.planModeEnabled === true;
-
-  return (
-    <View className="gap-3">
-      <SettingsSection title="Legacy">
-        <SettingsSwitchRow
-          icon="sidebar.left"
-          label="Legacy Thread List"
-          value={!threadListV2Enabled}
-          onValueChange={(value) => savePreferences({ legacyThreadListEnabled: value })}
-        />
-        <SettingsSwitchRow
-          icon="hammer"
-          label="Plan Mode"
-          value={planModeEnabled}
-          onValueChange={(value) => savePreferences({ planModeEnabled: value })}
-        />
-      </SettingsSection>
-      <Text className="px-2 text-sm text-foreground-muted">
-        Opt into retired interfaces kept for compatibility. Plan Mode restores the Build/Plan
-        control; otherwise every task runs in Build mode.
-      </Text>
-    </View>
   );
 }
 
@@ -705,12 +652,4 @@ function AppSettingsSection() {
 
 function capitalize(value: string): string {
   return value.length > 0 ? value.charAt(0).toUpperCase() + value.slice(1) : value;
-}
-
-function ArchivedThreadsSettingsSection() {
-  return (
-    <SettingsSection title="Threads">
-      <SettingsRow icon="archivebox" label="Archived Threads" target="SettingsArchive" />
-    </SettingsSection>
-  );
 }
