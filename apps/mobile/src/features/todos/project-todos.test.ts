@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
 import { EnvironmentId, ProjectId } from "@t3tools/contracts";
 
-import { projectTodosForScope, sortProjectTodos, type ProjectTodo } from "./project-todos";
+import {
+  applyProjectTodoEdit,
+  projectTodosForScope,
+  sortProjectTodos,
+  type ProjectTodo,
+} from "./project-todos";
 
 const todo = (overrides: Partial<ProjectTodo>): ProjectTodo => ({
   id: "todo-1",
@@ -33,6 +38,45 @@ describe("project todos", () => {
         projectId: ProjectId.make("project-1"),
       }).map((entry) => entry.id),
     ).toEqual(["matching"]);
+  });
+
+  it("updates a todo's text and moves it to the selected project", () => {
+    const original = todo({ text: "  old note  " });
+    const updated = applyProjectTodoEdit(original, {
+      text: "  moved note  ",
+      project: {
+        environmentId: EnvironmentId.make("environment-2"),
+        id: ProjectId.make("project-2"),
+        title: "Mobile",
+        workspaceRoot: "/workspace/mobile",
+        repositoryIdentity: null,
+        createdAt: "1970-01-01T00:00:00.000Z",
+        updatedAt: "1970-01-01T00:00:00.000Z",
+        defaultModelSelection: null,
+        scripts: [],
+      },
+      updatedAt: 42,
+    });
+
+    expect(updated).toMatchObject({
+      environmentId: "environment-2",
+      projectId: "project-2",
+      projectTitle: "Mobile",
+      text: "moved note",
+      updatedAt: 42,
+    });
+    expect(updated?.completed).toBe(original.completed);
+    expect(updated?.createdAt).toBe(original.createdAt);
+  });
+
+  it("rejects an empty edit", () => {
+    expect(
+      applyProjectTodoEdit(todo({}), {
+        text: "   ",
+        project: null,
+        updatedAt: 42,
+      }),
+    ).toBeNull();
   });
 
   it("keeps open items first and newest items first within each state", () => {

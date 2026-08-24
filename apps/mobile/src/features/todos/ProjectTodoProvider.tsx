@@ -12,7 +12,7 @@ import {
 
 import { loadProjectTodos, removeProjectTodo, saveProjectTodo } from "../../persistence/imperative";
 import { uuidv4 } from "../../lib/uuid";
-import { sortProjectTodos, type ProjectTodo } from "./project-todos";
+import { applyProjectTodoEdit, sortProjectTodos, type ProjectTodo } from "./project-todos";
 
 interface ProjectTodoContextValue {
   readonly todos: ReadonlyArray<ProjectTodo>;
@@ -20,7 +20,11 @@ interface ProjectTodoContextValue {
   readonly error: Error | null;
   readonly addTodo: (text: string, project: EnvironmentProject) => Promise<boolean>;
   readonly toggleTodo: (todo: ProjectTodo) => Promise<void>;
-  readonly updateTodo: (todo: ProjectTodo, text: string) => Promise<boolean>;
+  readonly updateTodo: (
+    todo: ProjectTodo,
+    text: string,
+    project: EnvironmentProject | null,
+  ) => Promise<boolean>;
   readonly deleteTodo: (todo: ProjectTodo) => Promise<void>;
   readonly dismissError: () => void;
 }
@@ -111,10 +115,9 @@ export function ProjectTodoProvider(props: PropsWithChildren) {
   );
 
   const updateTodo = useCallback(
-    async (todo: ProjectTodo, text: string) => {
-      const normalizedText = text.trim();
-      if (!normalizedText) return false;
-      const updated = { ...todo, text: normalizedText, updatedAt: Date.now() };
+    async (todo: ProjectTodo, text: string, project: EnvironmentProject | null) => {
+      const updated = applyProjectTodoEdit(todo, { text, project, updatedAt: Date.now() });
+      if (!updated) return false;
       setTodos((current) =>
         sortProjectTodos(
           current.map((candidate) => (candidate.id === todo.id ? updated : candidate)),

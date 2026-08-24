@@ -297,7 +297,11 @@ function TodoSection(props: {
   readonly projects: ReadonlyArray<EnvironmentProject>;
   readonly onToggle: (todo: ProjectTodo) => Promise<void>;
   readonly onDelete: (todo: ProjectTodo) => Promise<void>;
-  readonly onUpdate: (todo: ProjectTodo, text: string) => Promise<boolean>;
+  readonly onUpdate: (
+    todo: ProjectTodo,
+    text: string,
+    project: EnvironmentProject | null,
+  ) => Promise<boolean>;
 }) {
   return (
     <View className="gap-2">
@@ -308,6 +312,7 @@ function TodoSection(props: {
             key={todo.id}
             first={index === 0}
             todo={todo}
+            projects={props.projects}
             projectTitle={
               props.projects.find(
                 (project) =>
@@ -326,18 +331,30 @@ function TodoSection(props: {
 
 function TodoRow(props: {
   readonly todo: ProjectTodo;
+  readonly projects: ReadonlyArray<EnvironmentProject>;
   readonly projectTitle: string;
   readonly first: boolean;
   readonly onToggle: (todo: ProjectTodo) => Promise<void>;
   readonly onDelete: (todo: ProjectTodo) => Promise<void>;
-  readonly onUpdate: (todo: ProjectTodo, text: string) => Promise<boolean>;
+  readonly onUpdate: (
+    todo: ProjectTodo,
+    text: string,
+    project: EnvironmentProject | null,
+  ) => Promise<boolean>;
 }) {
   const iconColor = useThemeColor("--color-icon");
   const mutedColor = useThemeColor("--color-foreground-muted");
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(props.todo.text);
+  const [editProjectKey, setEditProjectKey] = useState(() => projectTodoScopeKey(props.todo));
+  const [showEditProjects, setShowEditProjects] = useState(false);
+  const editProject =
+    props.projects.find((project) => projectTodoScopeKey(project) === editProjectKey) ?? null;
   const saveEdit = async () => {
-    if (await props.onUpdate(props.todo, editDraft)) setIsEditing(false);
+    if (await props.onUpdate(props.todo, editDraft, editProject)) {
+      setShowEditProjects(false);
+      setIsEditing(false);
+    }
   };
   const confirmDelete = () => {
     Alert.alert("Delete this task?", props.todo.text, [
@@ -387,9 +404,49 @@ function TodoRow(props: {
             {props.todo.text}
           </Text>
         )}
-        <Text className="text-xs text-foreground-muted" numberOfLines={1}>
-          {props.projectTitle}
-        </Text>
+        {isEditing ? (
+          <>
+            <Pressable
+              accessibilityLabel={`Change project from ${editProject?.title ?? props.projectTitle}`}
+              accessibilityRole="button"
+              disabled={props.projects.length === 0}
+              onPress={() => setShowEditProjects((current) => !current)}
+              className="mt-1 flex-row items-center gap-2 rounded-xl bg-subtle px-3 py-2.5 disabled:opacity-60"
+            >
+              <SymbolView name="folder" size={15} tintColor={iconColor} type="monochrome" />
+              <Text className="min-w-0 flex-1 text-xs font-t3-medium" numberOfLines={1}>
+                {editProject?.title ?? props.projectTitle}
+              </Text>
+              <SymbolView
+                name="chevron.down"
+                size={13}
+                tintColor={mutedColor}
+                type="monochrome"
+                style={{ transform: [{ rotate: showEditProjects ? "180deg" : "0deg" }] }}
+              />
+            </Pressable>
+            {showEditProjects ? (
+              <View className="overflow-hidden rounded-2xl border border-border">
+                {props.projects.map((project, index) => (
+                  <ProjectOption
+                    key={projectTodoScopeKey(project)}
+                    first={index === 0}
+                    isSelected={projectTodoScopeKey(project) === editProjectKey}
+                    project={project}
+                    onPress={() => {
+                      setEditProjectKey(projectTodoScopeKey(project));
+                      setShowEditProjects(false);
+                    }}
+                  />
+                ))}
+              </View>
+            ) : null}
+          </>
+        ) : (
+          <Text className="text-xs text-foreground-muted" numberOfLines={1}>
+            {props.projectTitle}
+          </Text>
+        )}
       </View>
       {isEditing ? (
         <>
@@ -399,6 +456,8 @@ function TodoRow(props: {
             hitSlop={8}
             onPress={() => {
               setEditDraft(props.todo.text);
+              setEditProjectKey(projectTodoScopeKey(props.todo));
+              setShowEditProjects(false);
               setIsEditing(false);
             }}
             className="p-1"
@@ -423,6 +482,8 @@ function TodoRow(props: {
           hitSlop={8}
           onPress={() => {
             setEditDraft(props.todo.text);
+            setEditProjectKey(projectTodoScopeKey(props.todo));
+            setShowEditProjects(false);
             setIsEditing(true);
           }}
           className="p-1"
