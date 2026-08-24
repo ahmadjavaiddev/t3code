@@ -1,4 +1,4 @@
-import { useNavigation, type StaticScreenProps } from "@react-navigation/native";
+import { StackActions, useNavigation, type StaticScreenProps } from "@react-navigation/native";
 import { type AuthClientSession, type AuthPairingLink, EnvironmentId } from "@t3tools/contracts";
 import {
   createEnvironmentPairingCredential,
@@ -212,13 +212,9 @@ export function ConnectionAccessRouteScreen({
   }, [prepared, runMutation]);
 
   const openManagementPairing = useCallback(() => {
-    navigation.navigate("SettingsSheet", {
-      screen: "SettingsContent",
-      params: {
-        screen: "SettingsEnvironmentNew",
-        params: { requestAccessManagement: "1" },
-      },
-    });
+    navigation.dispatch(
+      StackActions.push("SettingsEnvironmentNew", { requestAccessManagement: "1" }),
+    );
   }, [navigation]);
 
   const sharePairingLink = useCallback(

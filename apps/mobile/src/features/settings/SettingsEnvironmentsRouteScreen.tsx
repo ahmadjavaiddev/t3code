@@ -1,5 +1,5 @@
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
-import { useNavigation } from "@react-navigation/native";
+import { StackActions, useNavigation } from "@react-navigation/native";
 import { SymbolView } from "../../components/AppSymbol";
 import type { EnvironmentId } from "@t3tools/contracts";
 import { useCallback, useState } from "react";
@@ -90,11 +90,7 @@ export function SettingsEnvironmentsRouteScreen() {
               {
                 accessibilityLabel: "Add environment",
                 icon: "plus",
-                onPress: () =>
-                  navigation.navigate("SettingsSheet", {
-                    screen: "SettingsContent",
-                    params: { screen: "SettingsEnvironmentNew" },
-                  }),
+                onPress: () => navigation.dispatch(StackActions.push("SettingsEnvironmentNew")),
               },
             ]}
           />
@@ -103,12 +99,7 @@ export function SettingsEnvironmentsRouteScreen() {
         <NativeHeaderToolbar placement="right">
           <NativeHeaderToolbar.Button
             icon="plus"
-            onPress={() =>
-              navigation.navigate("SettingsSheet", {
-                screen: "SettingsContent",
-                params: { screen: "SettingsEnvironmentNew" },
-              })
-            }
+            onPress={() => navigation.dispatch(StackActions.push("SettingsEnvironmentNew"))}
             separateBackground
             tintColor={headerIconColor}
           />
@@ -137,13 +128,9 @@ export function SettingsEnvironmentsRouteScreen() {
                   onToggle={() => handleToggle(environment.environmentId)}
                   onReconnect={onReconnectEnvironment}
                   onManageAccess={(environmentId) =>
-                    navigation.navigate("SettingsSheet", {
-                      screen: "SettingsContent",
-                      params: {
-                        screen: "SettingsEnvironmentAccess",
-                        params: { environmentId },
-                      },
-                    })
+                    navigation.dispatch(
+                      StackActions.push("SettingsEnvironmentAccess", { environmentId }),
+                    )
                   }
                   onRemove={onRemoveEnvironmentPress}
                   onUpdate={handleUpdateEnvironment}
