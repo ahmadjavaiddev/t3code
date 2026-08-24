@@ -15,6 +15,7 @@ import {
 import {
   buildPendingUserInputAnswers,
   buildThreadFeed,
+  computeStableThreadFeedEntries,
   deriveThreadFeedPresentation,
   isPendingUserInputOptionSelected,
   setPendingUserInputCustomAnswer,
@@ -178,6 +179,95 @@ function makeThread(
     settledAt: input.settledAt ?? null,
   };
 }
+
+describe("computeStableThreadFeedEntries", () => {
+  const build = (assistantText = "Done") =>
+    buildThreadFeed(
+      makeThread({
+        id: ThreadId.make("thread-stable-feed"),
+        projectId: ProjectId.make("project-1"),
+        title: "Stable feed",
+        messages: [
+          {
+            id: MessageId.make("user-message"),
+            role: "user",
+            text: "Please check this",
+            turnId: TurnId.make("turn-1"),
+            streaming: false,
+            createdAt: "2026-04-01T00:00:01.000Z",
+            updatedAt: "2026-04-01T00:00:01.000Z",
+          },
+          {
+            id: MessageId.make("assistant-message"),
+            role: "assistant",
+            text: assistantText,
+            turnId: TurnId.make("turn-1"),
+            streaming: true,
+            createdAt: "2026-04-01T00:00:02.000Z",
+            updatedAt:
+              assistantText === "Done" ? "2026-04-01T00:00:02.000Z" : "2026-04-01T00:00:03.000Z",
+          },
+        ],
+      }),
+    );
+
+  it("reuses equivalent rows and the result array across rebuilt projections", () => {
+    const initial = computeStableThreadFeedEntries(build(), {
+      byId: new Map(),
+      result: [],
+    });
+    const repeated = computeStableThreadFeedEntries(build(), initial);
+
+    expect(repeated).toBe(initial);
+    expect(repeated.result).toBe(initial.result);
+  });
+
+  it("replaces only the streaming message whose displayed content changed", () => {
+    const initial = computeStableThreadFeedEntries(build(), {
+      byId: new Map(),
+      result: [],
+    });
+    const next = computeStableThreadFeedEntries(build("Done now"), initial);
+
+    expect(next).not.toBe(initial);
+    expect(next.result[0]).toBe(initial.result[0]);
+    expect(next.result[1]).not.toBe(initial.result[1]);
+  });
+
+  it("replaces a message when an attachment changes", () => {
+    const initialFeed = build();
+    const message = initialFeed[1];
+    if (!message || message.type !== "message") throw new Error("Expected assistant message");
+    const initial = computeStableThreadFeedEntries(initialFeed, {
+      byId: new Map(),
+      result: [],
+    });
+    const next = computeStableThreadFeedEntries(
+      [
+        initialFeed[0]!,
+        {
+          ...message,
+          message: {
+            ...message.message,
+            attachments: [
+              {
+                type: "image",
+                id: "image-1",
+                name: "screenshot.png",
+                mimeType: "image/png",
+                sizeBytes: 128,
+              },
+            ],
+          },
+        },
+      ],
+      initial,
+    );
+
+    expect(next.result[0]).toBe(initial.result[0]);
+    expect(next.result[1]).not.toBe(initial.result[1]);
+  });
+});
 
 describe("buildThreadFeed", () => {
   it("keeps older local feedback before newer messages returned by the server", () => {
@@ -423,6 +513,10 @@ describe("buildThreadFeed", () => {
     });
 
     const feed = buildThreadFeed(thread);
+    expect(serializedToolOutputs).toBe(0);
+    const stable = computeStableThreadFeedEntries(feed, { byId: new Map(), result: [] });
+    const repeated = computeStableThreadFeedEntries(buildThreadFeed(thread), stable);
+    expect(repeated).toBe(stable);
     expect(serializedToolOutputs).toBe(0);
 
     const group = feed[0];

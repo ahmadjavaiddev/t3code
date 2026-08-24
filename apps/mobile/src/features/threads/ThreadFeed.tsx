@@ -76,7 +76,11 @@ import {
 } from "../review/nativeReviewDiffAdapter";
 import { buildReviewParsedDiff } from "../review/reviewModel";
 import { cn } from "../../lib/cn";
-import { deriveCenteredContentHorizontalPadding, type LayoutVariant } from "../../lib/layout";
+import {
+  deriveCenteredContentHorizontalPadding,
+  deriveThreadFeedInitialContentInset,
+  type LayoutVariant,
+} from "../../lib/layout";
 import {
   resolveMarkdownFontSizes,
   resolveNativeMarkdownTypography,
@@ -88,7 +92,9 @@ import { useAppearanceCodeSurface } from "../settings/appearance/useAppearanceCo
 import { markdownFileIconSource } from "@t3tools/mobile-markdown-text/file-icons";
 import { resolveMarkdownLinkPresentation } from "@t3tools/mobile-markdown-text/links";
 import {
+  computeStableThreadFeedEntries,
   deriveThreadFeedPresentation,
+  type StableThreadFeedEntriesState,
   type ThreadFeedEntry,
   type ThreadFeedLatestTurn,
 } from "../../lib/threadActivity";
@@ -107,6 +113,7 @@ import { useMarkdownCodeHighlight } from "./markdownCodeHighlightState";
 import { useAssetUrl, useAssetUrlState } from "../../state/assets";
 import { resolveWorkspaceRelativeFilePath } from "../files/filePath";
 import { MARKDOWN_IMAGE_MAX_WIDTH, resolveMarkdownImageDisplaySize } from "./markdownImageSize";
+import { threadFeedListMountKey } from "./thread-feed-platform";
 
 const WIDE_MARKDOWN_BLOCK_OPTIONS = {
   includeOrderedLists: Platform.OS === "android",
@@ -138,6 +145,8 @@ const WORKING_ROW_VERTICAL_EXTRAS = 24; // py-1 (8) + mb-4 (16)
 // remounts rows when they scroll back into view, and replaying an entrance for
 // old content would be its own kind of jank.
 const FRESH_ENTRY_WINDOW_MS = 3_000;
+const threadFeedItemsAreEqual = (previous: ThreadFeedEntry, next: ThreadFeedEntry) =>
+  previous === next;
 function isFreshTimestamp(input: string): boolean {
   const timestamp = Date.parse(input);
   return Number.isFinite(timestamp) && Date.now() - timestamp < FRESH_ENTRY_WINDOW_MS;
@@ -374,6 +383,28 @@ interface MarkdownStyleSet {
   readonly renderers: CustomRenderers;
   readonly nativeTextStyle: NativeMarkdownTextStyle;
 }
+
+const GFM_MARKDOWN_OPTIONS = { gfm: true } as const;
+
+/**
+ * Keeps completed Android messages out of React's Markdown reconciliation path
+ * when an unrelated streaming row changes.
+ */
+const MemoizedMarkdownText = memo(function MemoizedMarkdownText(props: {
+  readonly markdown: string;
+  readonly styles: MarkdownStyleSet;
+}) {
+  return (
+    <Markdown
+      options={GFM_MARKDOWN_OPTIONS}
+      renderers={props.styles.renderers}
+      styles={props.styles.styles}
+      theme={props.styles.theme}
+    >
+      {props.markdown}
+    </Markdown>
+  );
+});
 
 interface ReviewCommentColors {
   readonly background: ColorValue;
@@ -657,7 +688,11 @@ function useMarkdownStyles(
     };
 
     const baseStyles: NodeStyleOverrides = {
-      document: { flexShrink: 1 },
+      // Android can preserve a Markdown child's intrinsic width after its
+      // parent has been clamped. Give the document an explicit shrinkable
+      // width boundary so long links, tables, and nested blocks cannot push a
+      // message outside the feed.
+      document: { flexShrink: 1, minWidth: 0, maxWidth: "100%" },
       paragraph: { marginTop: 0, marginBottom: 10 },
       list: { marginTop: 4, marginBottom: 8 },
       list_item: { marginTop: 0, marginBottom: 4 },
@@ -1062,9 +1097,10 @@ function renderFeedEntry(
           {...(enterAnimated ? { entering: FadeInUp.duration(220) } : {})}
         >
           <View
-            className="min-w-0 gap-2 rounded-[20px] px-3.5 py-2.5"
+            className="min-w-0 max-w-full gap-2 rounded-[20px] px-3.5 py-2.5"
             style={{
               backgroundColor: userBubbleColor,
+              flexShrink: 1,
               maxWidth: props.userBubbleMaxWidth,
               ...(hasReviewCommentContext
                 ? { width: props.reviewCommentBubbleWidth }
@@ -1122,7 +1158,8 @@ function renderFeedEntry(
     const enterAnimated = isFreshTimestamp(message.createdAt);
     return (
       <Animated.View
-        className={cn(showAssistantMeta ? "mb-5 px-1" : "mb-2 px-1")}
+        className={cn("min-w-0 max-w-full px-1", showAssistantMeta ? "mb-5" : "mb-2")}
+        style={{ width: "100%", maxWidth: "100%", flexShrink: 1 }}
         {...(enterAnimated ? { entering: FadeIn.duration(220) } : {})}
       >
         {message.text.trim().length > 0 ? (
@@ -1135,14 +1172,7 @@ function renderFeedEntry(
               renderImage={props.renderMarkdownImage}
             />
           ) : (
-            <Markdown
-              options={{ gfm: true }}
-              renderers={styles.renderers}
-              styles={styles.styles}
-              theme={styles.theme}
-            >
-              {message.text}
-            </Markdown>
+            <MemoizedMarkdownText markdown={message.text} styles={styles} />
           )
         ) : null}
         {attachments.map((attachment) => {
@@ -1235,16 +1265,7 @@ function UserMessageContent(props: {
         />
       );
     }
-    return (
-      <Markdown
-        options={{ gfm: true }}
-        renderers={props.markdownStyles.renderers}
-        styles={props.markdownStyles.styles}
-        theme={props.markdownStyles.theme}
-      >
-        {props.text}
-      </Markdown>
-    );
+    return <MemoizedMarkdownText markdown={props.text} styles={props.markdownStyles} />;
   }
 
   return (
@@ -1276,15 +1297,7 @@ function UserMessageContent(props: {
             renderImage={props.renderImage}
           />
         ) : (
-          <Markdown
-            key={segment.id}
-            options={{ gfm: true }}
-            renderers={props.markdownStyles.renderers}
-            styles={props.markdownStyles.styles}
-            theme={props.markdownStyles.theme}
-          >
-            {text}
-          </Markdown>
+          <MemoizedMarkdownText key={segment.id} markdown={text} styles={props.markdownStyles} />
         );
       })}
     </View>
@@ -1555,6 +1568,11 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   const bottomContentInset = props.contentBottomInset ?? 18;
   const usesNativeAutomaticInsets =
     props.usesAutomaticContentInsets === true && Platform.OS === "ios";
+  const initialContentInset = deriveThreadFeedInitialContentInset({
+    platform: Platform.OS,
+    usesNativeAutomaticInsets,
+    bottomContentInset,
+  });
   // With automatic insets the header inset lives in UIKit's adjustedContentInset,
   // which LegendList's JS anchoring math cannot see — it measures the anchored
   // end space from the scroll view's frame top. Fold the header height back into
@@ -1626,28 +1644,6 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   );
   const markdownStyles = useMarkdownStyles(onMarkdownLinkPress, renderMarkdownImage);
   const reviewCommentColors = useReviewCommentColors();
-  // LegendList does not invalidate visible rows when only the renderItem closure changes.
-  // Keep row-local interaction props in extraData so disclosures and copy feedback repaint.
-  const listAppearanceData = useMemo(
-    () => ({
-      copiedRowId,
-      expandedWorkRows,
-      iconSubtleColor,
-      markdownStyles,
-      reviewCommentColors,
-      userBubbleColor,
-      viewportWidth,
-    }),
-    [
-      copiedRowId,
-      expandedWorkRows,
-      iconSubtleColor,
-      markdownStyles,
-      reviewCommentColors,
-      userBubbleColor,
-      viewportWidth,
-    ],
-  );
   const reportHeaderMaterialVisibility = useCallback(
     (visible: boolean) => {
       if (headerMaterialVisibleRef.current === visible) {
@@ -1773,7 +1769,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
     }
     return ids;
   }, [expandedWorkGroups]);
-  const presentedFeed = useMemo(
+  const derivedFeed = useMemo(
     () =>
       deriveThreadFeedPresentation(
         props.feed,
@@ -1790,15 +1786,30 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
       props.latestTurn,
     ],
   );
+  const stableFeedRef = useRef<{
+    readonly threadKey: string;
+    readonly state: StableThreadFeedEntriesState;
+  }>({
+    threadKey: feedThreadKey,
+    state: { byId: new Map(), result: [] },
+  });
+  const presentedFeed = useMemo(() => {
+    const previous =
+      stableFeedRef.current.threadKey === feedThreadKey
+        ? stableFeedRef.current.state
+        : { byId: new Map<string, ThreadFeedEntry>(), result: [] };
+    const state = computeStableThreadFeedEntries(derivedFeed, previous);
+    stableFeedRef.current = { threadKey: feedThreadKey, state };
+    return state.result;
+  }, [derivedFeed, feedThreadKey]);
 
-  // The empty↔filled key below remounts the list, which resets its imperative
+  // iOS's empty↔filled key below remounts the list, which resets its imperative
   // content-inset override — and useKeyboardChatComposerInset (mounted above
   // the remount boundary) deduplicates by height, so it never re-reports the
-  // composer inset to the fresh instance. Without this, the remounted list's
-  // initial scroll-to-end computes with a zero end inset and rests one
-  // composer-height short of the end. Layout effect: it must land before the
-  // list's first positioning tick or the one-shot initial scroll misses it.
-  const listMountKey = `${feedThreadKey}:${props.feed.length === 0 ? "empty" : "filled"}`;
+  // composer inset to the fresh instance. Android keeps one mount so first-load
+  // measurements are not discarded. Layout effect: on iOS it must land before
+  // the list's first positioning tick or the one-shot initial scroll misses it.
+  const listMountKey = threadFeedListMountKey(Platform.OS, feedThreadKey, props.feed.length === 0);
   useLayoutEffect(() => {
     const bottom = props.contentInsetEndAdjustment.value;
     if (bottom > 0) {
@@ -1825,11 +1836,48 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
     }
     return new Set(terminalIdsByTurn.values());
   }, [props.feed]);
+  const terminalAssistantMessageIdsKey = useMemo(
+    () => JSON.stringify(Array.from(terminalAssistantMessageIds)),
+    [terminalAssistantMessageIds],
+  );
+  const skillsKey = useMemo(() => JSON.stringify(props.skills ?? []), [props.skills]);
   const unsettledTurnId =
     props.latestTurn &&
     (props.latestTurn.completedAt === null || props.latestTurn.state === "running")
       ? props.latestTurn.turnId
       : null;
+  // LegendList does not invalidate visible rows when only the renderItem closure changes.
+  // Value-stable keys keep streaming projections from repainting otherwise unchanged rows.
+  const listAppearanceData = useMemo(
+    () => ({
+      copiedRowId,
+      expandedWorkRows,
+      iconSubtleColor,
+      markdownStyles,
+      reviewCommentBubbleWidth,
+      reviewCommentColors,
+      skillsKey,
+      terminalAssistantMessageIdsKey,
+      unsettledTurnId,
+      userBubbleColor,
+      userBubbleMaxWidth,
+      viewportWidth,
+    }),
+    [
+      copiedRowId,
+      expandedWorkRows,
+      iconSubtleColor,
+      markdownStyles,
+      reviewCommentBubbleWidth,
+      reviewCommentColors,
+      skillsKey,
+      terminalAssistantMessageIdsKey,
+      unsettledTurnId,
+      userBubbleColor,
+      userBubbleMaxWidth,
+      viewportWidth,
+    ],
+  );
 
   useEffect(() => {
     const previous = previousLatestTurnRef.current;
@@ -2065,12 +2113,12 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
         <View className="flex-1">
           <KeyboardAwareLegendList
             ref={props.listRef}
-            // The empty↔filled key remounts the list when messages first
-            // arrive. LegendList's maintainScrollAtEnd calls scrollToEnd(),
+            // On iOS the empty↔filled key remounts the list when messages
+            // first arrive. LegendList's maintainScrollAtEnd calls scrollToEnd(),
             // which is blind to UIKit's adjustedContentInset — inserting into
             // an already-attached list under a transparent header can pin
-            // short content at offset 0 (one header-height too high). A fresh
-            // mount positions during attach, where UIKit applies the inset.
+            // short content at offset 0 (one header-height too high). Android
+            // deliberately keeps the same list and its measurements.
             key={listMountKey}
             style={{ flex: 1 }}
             // RN 0.81+ drops touches inside the contentInset area
@@ -2104,6 +2152,10 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
             // ThreadDetailScreen); this tells LegendList's scroll math about the
             // extra so programmatic end scrolls land at the true resting offset.
             contentInsetEndStaticAdjustment={usesNativeAutomaticInsets ? insets.bottom : 0}
+            // Android has no native adjusted inset for the floating composer.
+            // Seed LegendList's first scroll calculation declaratively; the
+            // measured shared-value override replaces this floor afterwards.
+            {...(initialContentInset ? { contentInset: initialContentInset } : {})}
             // The keyboard integration's offset math (end pinning, max scroll)
             // must add the same UIKit-added extra, or its keyboard-open end
             // targets land one safe-area short of the true resting offset.
@@ -2129,6 +2181,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
             }
             maintainVisibleContentPosition={maintainVisibleContentPosition}
             data={presentedFeed}
+            itemsAreEqual={threadFeedItemsAreEqual}
             extraData={listAppearanceData}
             renderItem={renderItem}
             keyExtractor={(entry) => entry.id}
@@ -2143,8 +2196,8 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
             keyboardDismissMode="none"
             keyboardLiftBehavior="whenAtEnd"
             // Seed the list's scroll math with the real viewport before its own
-            // onLayout: the empty→filled remount can then tell at mount that
-            // short content underflows the viewport and skip programmatic
+            // onLayout: the iOS empty→filled remount can then tell at mount
+            // that short content underflows the viewport and skip programmatic
             // positioning entirely (any offset write during screen attach races
             // UIKit's adjustedContentInset application and lands high or low).
             {...(viewportHeight > 0 && viewportWidth > 0

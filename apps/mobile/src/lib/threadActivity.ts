@@ -132,6 +132,137 @@ export type ThreadFeedEntry =
       readonly expanded: boolean;
     };
 
+export interface StableThreadFeedEntriesState {
+  readonly byId: Map<string, ThreadFeedEntry>;
+  readonly result: ThreadFeedEntry[];
+}
+
+/**
+ * Preserves row references when a projection rebuilds entries whose rendered
+ * content did not change. LegendList can then skip every unchanged row while a
+ * streaming message advances.
+ */
+export function computeStableThreadFeedEntries(
+  entries: ThreadFeedEntry[],
+  previous: StableThreadFeedEntriesState,
+): StableThreadFeedEntriesState {
+  const next = new Map<string, ThreadFeedEntry>();
+  let anyChanged = entries.length !== previous.result.length;
+  const result = entries.map((entry, index) => {
+    const previousEntry = previous.byId.get(entry.id);
+    const stableEntry =
+      previousEntry && threadFeedEntryIsUnchanged(previousEntry, entry) ? previousEntry : entry;
+    next.set(entry.id, stableEntry);
+    if (!anyChanged && previous.result[index] !== stableEntry) {
+      anyChanged = true;
+    }
+    return stableEntry;
+  });
+  return anyChanged ? { byId: next, result } : previous;
+}
+
+function threadFeedEntryIsUnchanged(current: ThreadFeedEntry, next: ThreadFeedEntry): boolean {
+  if (
+    current.type !== next.type ||
+    current.id !== next.id ||
+    current.createdAt !== next.createdAt
+  ) {
+    return false;
+  }
+
+  switch (current.type) {
+    case "working":
+      return true;
+    case "turn-fold": {
+      const candidate = next as typeof current;
+      return (
+        current.turnId === candidate.turnId &&
+        current.label === candidate.label &&
+        current.expanded === candidate.expanded
+      );
+    }
+    case "work-toggle": {
+      const candidate = next as typeof current;
+      return (
+        current.turnId === candidate.turnId &&
+        current.groupId === candidate.groupId &&
+        current.hiddenCount === candidate.hiddenCount &&
+        current.expanded === candidate.expanded &&
+        current.onlyToolActivities === candidate.onlyToolActivities
+      );
+    }
+    case "activity-group": {
+      const candidate = next as typeof current;
+      return (
+        current.turnId === candidate.turnId &&
+        threadFeedActivitiesAreUnchanged(current.activities, candidate.activities)
+      );
+    }
+    case "message": {
+      const candidate = next as typeof current;
+      const currentMessage = current.message;
+      const nextMessage = candidate.message;
+      return (
+        currentMessage.id === nextMessage.id &&
+        currentMessage.role === nextMessage.role &&
+        currentMessage.text === nextMessage.text &&
+        currentMessage.turnId === nextMessage.turnId &&
+        currentMessage.streaming === nextMessage.streaming &&
+        currentMessage.createdAt === nextMessage.createdAt &&
+        currentMessage.updatedAt === nextMessage.updatedAt &&
+        chatAttachmentsAreUnchanged(currentMessage.attachments, nextMessage.attachments)
+      );
+    }
+  }
+}
+
+function threadFeedActivitiesAreUnchanged(
+  current: ReadonlyArray<ThreadFeedActivity>,
+  next: ReadonlyArray<ThreadFeedActivity>,
+): boolean {
+  if (current.length !== next.length) return false;
+  return current.every((activity, index) => {
+    const candidate = next[index];
+    // Expanded/copy bodies are lazy and can contain multi-megabyte tool
+    // payloads. Their event id is immutable; compare the eagerly rendered
+    // projection only so stabilization never forces payload serialization.
+    return (
+      candidate !== undefined &&
+      activity.id === candidate.id &&
+      activity.createdAt === candidate.createdAt &&
+      activity.turnId === candidate.turnId &&
+      activity.summary === candidate.summary &&
+      activity.detail === candidate.detail &&
+      activity.canExpand === candidate.canExpand &&
+      activity.icon === candidate.icon &&
+      activity.toolLike === candidate.toolLike &&
+      activity.status === candidate.status
+    );
+  });
+}
+
+type ThreadMessageAttachments = NonNullable<OrchestrationThread["messages"][number]["attachments"]>;
+
+function chatAttachmentsAreUnchanged(
+  current: ThreadMessageAttachments | undefined,
+  next: ThreadMessageAttachments | undefined,
+): boolean {
+  const currentAttachments = current ?? [];
+  const nextAttachments = next ?? [];
+  if (currentAttachments.length !== nextAttachments.length) return false;
+  return currentAttachments.every((attachment, index) => {
+    const candidate = nextAttachments[index];
+    return (
+      candidate !== undefined &&
+      attachment.type === candidate.type &&
+      attachment.id === candidate.id &&
+      attachment.name === candidate.name &&
+      attachment.mimeType === candidate.mimeType &&
+      attachment.sizeBytes === candidate.sizeBytes
+    );
+  });
+}
+
 export type ThreadFeedLatestTurn = Pick<
   OrchestrationLatestTurn,
   "turnId" | "state" | "startedAt" | "completedAt"
