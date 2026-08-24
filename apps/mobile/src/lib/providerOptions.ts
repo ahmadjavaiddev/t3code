@@ -22,6 +22,16 @@ export function resolveProviderOptionDescriptors(input: {
   });
 }
 
+/** The provider-advertised reasoning selector, when the active model has one. */
+export function findReasoningOptionDescriptor(
+  descriptors: ReadonlyArray<ProviderOptionDescriptor>,
+): Extract<ProviderOptionDescriptor, { type: "select" }> | null {
+  const descriptor = descriptors.find(
+    (candidate) => candidate.type === "select" && candidate.label === "Reasoning",
+  );
+  return descriptor?.type === "select" ? descriptor : null;
+}
+
 /**
  * Labels for the option values currently in effect (select values plus
  * enabled booleans), used to summarize the thread configuration in the

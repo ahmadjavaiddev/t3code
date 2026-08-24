@@ -25,6 +25,7 @@ import {
 import { ComposerEditor, type ComposerEditorHandle } from "../../components/ComposerEditor";
 import {
   ComposerInlineControl,
+  ComposerSelectControl,
   ComposerToolbarButton,
   ComposerToolbarRow,
   ComposerToolbarScroller,
@@ -66,6 +67,16 @@ import {
   resolveNewTaskWorkspaceLabel,
 } from "./new-task-context-presentation";
 import { useIncomingShare } from "../sharing/IncomingShareProvider";
+import {
+  applyProviderOptionSelection,
+  findReasoningOptionDescriptor,
+  resolveProviderOptionDescriptors,
+} from "../../lib/providerOptions";
+import {
+  getProviderOptionCurrentLabel,
+  getProviderOptionCurrentValue,
+} from "@t3tools/shared/model";
+import { selectableChoices } from "./thread-settings-options";
 
 function NewTaskWorkspaceIcon(props: {
   readonly workspaceMode: "local" | "worktree";
@@ -100,6 +111,14 @@ export function NewTaskDraftScreen(props: {
   const projects = useProjects();
   const createProjectThread = useCreateProjectThread();
   const flow = useNewTaskFlow();
+  const providerOptionDescriptors = resolveProviderOptionDescriptors({
+    capabilities: flow.selectedModelOption?.capabilities,
+    selections: flow.selectedModel?.options,
+  });
+  const reasoningDescriptor = findReasoningOptionDescriptor(providerOptionDescriptors);
+  const reasoningValue = reasoningDescriptor
+    ? getProviderOptionCurrentValue(reasoningDescriptor)
+    : null;
   const navigation = useNavigation();
   const {
     consumeShare,
@@ -1007,6 +1026,22 @@ export function NewTaskDraftScreen(props: {
               maxWidth={152}
               onPress={settingsSheetPresentation.open}
             />
+            {reasoningDescriptor ? (
+              <ComposerSelectControl
+                accessibilityLabel={`Reasoning: ${getProviderOptionCurrentLabel(reasoningDescriptor) ?? "Choose level"}`}
+                disabled={isIncomingShareTransferPending}
+                label={getProviderOptionCurrentLabel(reasoningDescriptor) ?? "Reasoning"}
+                onSelect={(value) => {
+                  const options = applyProviderOptionSelection(providerOptionDescriptors, {
+                    id: reasoningDescriptor.id,
+                    value,
+                  });
+                  if (options) flow.setSelectedModelOptions(options);
+                }}
+                options={selectableChoices(reasoningDescriptor)}
+                selectedId={typeof reasoningValue === "string" ? reasoningValue : null}
+              />
+            ) : null}
             {flow.planModeEnabled ? (
               <ComposerInlineControl
                 accessibilityHint={`Switches to ${flow.interactionMode === "plan" ? "Build" : "Plan"} mode`}
