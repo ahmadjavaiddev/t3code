@@ -9,6 +9,12 @@ import {
   getProviderOptionDescriptors,
 } from "@t3tools/shared/model";
 
+const REASONING_OPTION_IDS: ReadonlySet<string> = new Set([
+  "reasoningEffort",
+  "effort",
+  "reasoning",
+]);
+
 export function resolveProviderOptionDescriptors(input: {
   readonly capabilities: ModelCapabilities | null | undefined;
   readonly selections: ReadonlyArray<ProviderOptionSelection> | null | undefined;
@@ -27,7 +33,10 @@ export function findReasoningOptionDescriptor(
   descriptors: ReadonlyArray<ProviderOptionDescriptor>,
 ): Extract<ProviderOptionDescriptor, { type: "select" }> | null {
   const descriptor = descriptors.find(
-    (candidate) => candidate.type === "select" && candidate.label === "Reasoning",
+    (candidate) =>
+      candidate.type === "select" &&
+      (REASONING_OPTION_IDS.has(candidate.id) ||
+        candidate.label.trim().toLowerCase() === "reasoning"),
   );
   return descriptor?.type === "select" ? descriptor : null;
 }

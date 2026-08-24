@@ -53,6 +53,24 @@ describe("mobile provider options", () => {
     expect(findReasoningOptionDescriptor(descriptors)?.id).toBe("reasoningEffort");
   });
 
+  it("finds reasoning by its provider-specific id when the display label differs", () => {
+    const descriptors = resolveProviderOptionDescriptors({
+      capabilities: {
+        optionDescriptors: [
+          {
+            id: "reasoning",
+            label: "Thinking effort",
+            type: "select",
+            options: [{ id: "high", label: "High", isDefault: true }],
+          },
+        ],
+      },
+      selections: undefined,
+    });
+
+    expect(findReasoningOptionDescriptor(descriptors)?.id).toBe("reasoning");
+  });
+
   it("updates generic select options without knowing provider-specific ids", () => {
     const descriptors = resolveProviderOptionDescriptors({
       capabilities: CODEX_CAPABILITIES,
