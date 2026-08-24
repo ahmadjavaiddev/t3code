@@ -34,6 +34,8 @@ export function ConnectionEnvironmentRow(props: {
     environmentId: EnvironmentId,
     updates: { readonly label: string; readonly displayUrl: string },
   ) => Promise<AtomCommandResult<unknown, unknown>>;
+  readonly detailsOnly?: boolean;
+  readonly opensDetails?: boolean;
 }) {
   const [label, setLabel] = useState(props.environment.environmentLabel);
   const [url, setUrl] = useState(props.environment.displayUrl);
@@ -65,73 +67,109 @@ export function ConnectionEnvironmentRow(props: {
 
   return (
     <Animated.View layout={LinearTransition.duration(250)} className="bg-card">
-      <Pressable
-        className="flex-row items-center gap-3 px-4 py-3.5 active:opacity-70"
-        onPress={props.onToggle}
-      >
-        <ConnectionStatusDot
-          state={props.environment.connectionState}
-          pulse={isRetrying}
-          size={8}
-        />
+      {props.detailsOnly ? null : (
+        <Pressable
+          accessibilityHint={props.opensDetails ? "Opens environment details" : undefined}
+          accessibilityRole="button"
+          className="flex-row items-center gap-3 px-4 py-3.5 active:opacity-70"
+          onPress={props.onToggle}
+        >
+          <ConnectionStatusDot
+            state={props.environment.connectionState}
+            pulse={isRetrying}
+            size={8}
+          />
 
-        <View className="flex-1 gap-0.5">
-          <Text className="text-base font-t3-bold leading-snug text-foreground" numberOfLines={1}>
-            {props.environment.environmentLabel}
-          </Text>
-          <Text className="text-xs text-foreground-muted" numberOfLines={1}>
-            {props.environment.displayUrl}
-          </Text>
-          {statusLabel ? (
-            <Text
-              className={cn(
-                "text-xs",
-                hasConnectionFailure ? "text-rose-500 dark:text-rose-400" : "text-foreground-muted",
-              )}
-              numberOfLines={props.expanded ? undefined : 1}
-              selectable={props.expanded}
-            >
-              {statusLabel}
-              {statusTraceId ? (
-                <>
-                  {" Trace ID: "}
-                  <Text
-                    accessibilityHint="Copies the trace ID"
-                    accessibilityRole="button"
-                    className="underline decoration-dotted"
-                    onLongPress={(event) => {
-                      event.stopPropagation();
-                      copyTextWithHaptic(statusTraceId, { target: "connection-trace-id" });
-                    }}
-                    onPress={(event) => {
-                      event.stopPropagation();
-                    }}
-                  >
-                    {statusTraceId}
-                  </Text>
-                </>
-              ) : null}
+          <View className="flex-1 gap-0.5">
+            <Text className="text-base font-t3-bold leading-snug text-foreground" numberOfLines={1}>
+              {props.environment.environmentLabel}
             </Text>
-          ) : null}
-        </View>
+            <Text className="text-xs text-foreground-muted" numberOfLines={1}>
+              {props.environment.displayUrl}
+            </Text>
+            {statusLabel ? (
+              <Text
+                className={cn(
+                  "text-xs",
+                  hasConnectionFailure
+                    ? "text-rose-500 dark:text-rose-400"
+                    : "text-foreground-muted",
+                )}
+                numberOfLines={props.expanded ? undefined : 1}
+                selectable={props.expanded}
+              >
+                {statusLabel}
+                {statusTraceId ? (
+                  <>
+                    {" Trace ID: "}
+                    <Text
+                      accessibilityHint="Copies the trace ID"
+                      accessibilityRole="button"
+                      className="underline decoration-dotted"
+                      onLongPress={(event) => {
+                        event.stopPropagation();
+                        copyTextWithHaptic(statusTraceId, { target: "connection-trace-id" });
+                      }}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                      }}
+                    >
+                      {statusTraceId}
+                    </Text>
+                  </>
+                ) : null}
+              </Text>
+            ) : null}
+          </View>
 
-        <SymbolView
-          name="chevron.down"
-          size={12}
-          tintColor={mutedColor}
-          type="monochrome"
-          style={{
-            transform: [{ rotate: props.expanded ? "180deg" : "0deg" }],
-          }}
-        />
-      </Pressable>
+          <SymbolView
+            name={props.opensDetails ? "chevron.right" : "chevron.down"}
+            size={12}
+            tintColor={mutedColor}
+            type="monochrome"
+            style={{
+              transform: [{ rotate: !props.opensDetails && props.expanded ? "180deg" : "0deg" }],
+            }}
+          />
+        </Pressable>
+      )}
 
       {props.expanded ? (
         <Animated.View
           entering={FadeIn.duration(200)}
           exiting={FadeOut.duration(150)}
-          className="gap-3 px-4 pb-4"
+          className={cn("gap-3 px-4 pb-4", props.detailsOnly && "pt-4")}
         >
+          {props.detailsOnly ? (
+            <View className="flex-row items-start gap-3 border-b border-border pb-4">
+              <View className="pt-1.5">
+                <ConnectionStatusDot
+                  state={props.environment.connectionState}
+                  pulse={isRetrying}
+                  size={8}
+                />
+              </View>
+              <View className="min-w-0 flex-1 gap-0.5">
+                <Text className="text-lg font-t3-bold text-foreground">
+                  {props.environment.environmentLabel}
+                </Text>
+                <Text className="text-sm text-foreground-muted" selectable>
+                  {props.environment.displayUrl}
+                </Text>
+                <Text
+                  className={cn(
+                    "text-sm",
+                    hasConnectionFailure
+                      ? "text-rose-500 dark:text-rose-400"
+                      : "text-foreground-muted",
+                  )}
+                >
+                  {statusLabel ?? "Connected"}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
           {props.environment.isRelayManaged ? (
             <Text className="text-sm text-foreground-muted">
               Managed by T3 Connect. Tunnel details update automatically.

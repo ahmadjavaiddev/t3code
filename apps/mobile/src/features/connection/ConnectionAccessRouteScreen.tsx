@@ -54,7 +54,15 @@ type MutationKind = "create" | "revoke-others" | `pairing-link:${string}` | `cli
 export function ConnectionAccessRouteScreen({
   route,
 }: StaticScreenProps<ConnectionAccessRouteParams>) {
-  const environmentId = EnvironmentId.make(route.params.environmentId);
+  return <ConnectionAccessContent environmentId={route.params.environmentId} />;
+}
+
+export function ConnectionAccessContent(props: {
+  readonly environmentId: string;
+  readonly embedded?: boolean;
+}) {
+  const embedded = props.embedded ?? false;
+  const environmentId = EnvironmentId.make(props.environmentId);
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const connection = useSavedRemoteConnection(environmentId);
@@ -225,8 +233,8 @@ export function ConnectionAccessRouteScreen({
   );
 
   return (
-    <View collapsable={false} className="flex-1 bg-sheet">
-      {Platform.OS === "android" ? (
+    <View collapsable={false} className={embedded ? undefined : "flex-1 bg-sheet"}>
+      {embedded ? null : Platform.OS === "android" ? (
         <>
           <NativeStackScreenOptions options={{ headerShown: false }} />
           <AndroidScreenHeader title="Connection Access" onBack={() => navigation.goBack()} />
@@ -237,11 +245,14 @@ export function ConnectionAccessRouteScreen({
         />
       )}
       <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
+        contentInsetAdjustmentBehavior={embedded ? "never" : "automatic"}
+        scrollEnabled={!embedded}
         showsVerticalScrollIndicator={false}
-        className="flex-1"
-        contentContainerClassName="gap-6 px-5 pt-4"
-        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 18) + 18 }}
+        className={embedded ? undefined : "flex-1"}
+        contentContainerClassName={embedded ? "gap-6" : "gap-6 px-5 pt-4"}
+        contentContainerStyle={
+          embedded ? undefined : { paddingBottom: Math.max(insets.bottom, 18) + 18 }
+        }
       >
         {connection === null ? (
           <ErrorBanner message="This environment is no longer saved on this device." />

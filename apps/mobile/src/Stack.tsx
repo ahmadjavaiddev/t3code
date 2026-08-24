@@ -55,6 +55,7 @@ import { SettingsAppearanceRouteScreen } from "./features/settings/SettingsAppea
 import { SettingsClientStorageRouteScreen } from "./features/settings/SettingsClientStorageRouteScreen";
 import { SettingsAuthRouteScreen } from "./features/settings/SettingsAuthRouteScreen";
 import { SettingsEnvironmentsRouteScreen } from "./features/settings/SettingsEnvironmentsRouteScreen";
+import { SettingsEnvironmentDetailsRouteScreen } from "./features/settings/SettingsEnvironmentDetailsRouteScreen";
 import { SettingsLegalRouteScreen } from "./features/settings/SettingsLegalRouteScreen";
 import { SettingsProjectGroupingRouteScreen } from "./features/settings/SettingsProjectGroupingRouteScreen";
 import { UsageRouteScreen } from "./features/usage/UsageRouteScreen";
@@ -164,6 +165,13 @@ const SettingsContentStack = createNativeStackNavigator({
       linking: "environments/:environmentId/access",
       options: {
         title: "Connection Access",
+      },
+    }),
+    SettingsEnvironmentDetails: createNativeStackScreen({
+      screen: SettingsEnvironmentDetailsRouteScreen,
+      linking: "environments/:environmentId/details",
+      options: {
+        title: "Environment Details",
       },
     }),
     SettingsEnvironmentNew: createNativeStackScreen({
