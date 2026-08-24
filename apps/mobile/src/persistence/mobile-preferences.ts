@@ -47,6 +47,10 @@ export interface Preferences {
   readonly threadListV2SettledShelfExpanded?: boolean;
   /** Undefined preserves the default collapsed Snoozed shelf. */
   readonly threadListV2SnoozedShelfExpanded?: boolean;
+  /** First app launch that can track newly completed threads without flagging old history. */
+  readonly threadCompletionTrackingStartedAt?: string;
+  /** Device-local unread completion cursor for mobile thread lists. */
+  readonly threadLastVisitedAtById?: Readonly<Record<string, string>>;
 }
 
 export class MobilePreferencesLoadError extends Schema.TaggedErrorClass<MobilePreferencesLoadError>()(
@@ -108,6 +112,8 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     syncWorkingThreadMessages?: boolean;
     threadListV2SettledShelfExpanded?: boolean;
     threadListV2SnoozedShelfExpanded?: boolean;
+    threadCompletionTrackingStartedAt?: string;
+    threadLastVisitedAtById?: Readonly<Record<string, string>>;
   } = {};
 
   if (typeof parsed.liveActivitiesEnabled === "boolean") {
@@ -186,6 +192,26 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   }
   if (typeof parsed.threadListV2SnoozedShelfExpanded === "boolean") {
     preferences.threadListV2SnoozedShelfExpanded = parsed.threadListV2SnoozedShelfExpanded;
+  }
+  if (
+    typeof parsed.threadCompletionTrackingStartedAt === "string" &&
+    !Number.isNaN(Date.parse(parsed.threadCompletionTrackingStartedAt))
+  ) {
+    preferences.threadCompletionTrackingStartedAt = parsed.threadCompletionTrackingStartedAt;
+  }
+  if (
+    parsed.threadLastVisitedAtById &&
+    typeof parsed.threadLastVisitedAtById === "object" &&
+    !Array.isArray(parsed.threadLastVisitedAtById)
+  ) {
+    preferences.threadLastVisitedAtById = Object.fromEntries(
+      Object.entries(parsed.threadLastVisitedAtById).filter(
+        (entry): entry is [string, string] =>
+          entry[0].length > 0 &&
+          typeof entry[1] === "string" &&
+          !Number.isNaN(Date.parse(entry[1])),
+      ),
+    );
   }
   return preferences;
 }

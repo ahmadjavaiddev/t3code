@@ -32,6 +32,21 @@ That gives you:
 - transport security at the network layer
 - less exposure than opening the server to the public internet
 
+## Keeping the Android App Connected
+
+On Android, **Keep connected in background** keeps saved environments and their thread lists
+synchronized while the phone is locked or another app is open. Enable it under **Settings** →
+**Background connection**.
+
+The setting works with direct LAN, Tailscale, and T3 Connect environments. Android shows a silent
+ongoing notification while it is enabled, and the extra network activity can increase battery and
+mobile-data use. Allow unrestricted battery use when prompted for more reliable operation while the
+screen is off.
+
+Force-stopping T3 Code prevents Android from restarting the connection until you launch the app
+again. If a Tailscale environment depends on the Tailscale Android app, that VPN must also remain
+connected.
+
 ## Enabling Network Access
 
 There are three ways to reach your server from another device: expose the desktop app's backend,
@@ -208,7 +223,20 @@ Hosted pairing does not proxy traffic through T3 Code. The browser still connect
 
 ## Managing Access Later
 
-Use `t3 auth` to manage access after the initial pairing flow.
+On mobile, open **Settings** → **Environments**, expand an environment, and choose **Manage client
+access**. A management-capable mobile session can:
+
+- create and share one-time pairing links
+- inspect active pairing links and authorized clients
+- revoke individual links or clients, or revoke every other client
+
+Ordinary mobile pairings intentionally cannot manage other clients. If the access screen asks for
+management permission, pair again with the owner link printed when the server starts (or a link
+created with **Connection management** enabled), then enable **Connection management** in the
+mobile **Add Environment** form. The server will reject the request unless that one-time link grants
+the same permission.
+
+You can also use `t3 auth` to manage access from the server machine after the initial pairing flow.
 
 Typical uses:
 

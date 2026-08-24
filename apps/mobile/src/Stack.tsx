@@ -33,6 +33,7 @@ import { GitOverviewSheet } from "./features/threads/git/GitOverviewSheet";
 import { ThreadRouteScreen } from "./features/threads/ThreadRouteScreen";
 import { ConnectionsRouteScreen } from "./features/connection/ConnectionsRouteScreen";
 import { ConnectionsNewRouteScreen } from "./features/connection/ConnectionsNewRouteScreen";
+import { ConnectionAccessRouteScreen } from "./features/connection/ConnectionAccessRouteScreen";
 import { HomeRouteScreen } from "./features/home/HomeRouteScreen";
 import { AddProjectDestinationRoute } from "./features/projects/AddProjectDestinationRoute";
 import { AddProjectLocalRoute } from "./features/projects/AddProjectLocalRoute";
@@ -57,6 +58,7 @@ import { SettingsEnvironmentsRouteScreen } from "./features/settings/SettingsEnv
 import { SettingsLegalRouteScreen } from "./features/settings/SettingsLegalRouteScreen";
 import { SettingsProjectGroupingRouteScreen } from "./features/settings/SettingsProjectGroupingRouteScreen";
 import { UsageRouteScreen } from "./features/usage/UsageRouteScreen";
+import { ProjectTodosRouteScreen } from "./features/todos/ProjectTodosRouteScreen";
 import { SettingsRouteScreen } from "./features/settings/SettingsRouteScreen";
 import { ShowcaseCaptureCoordinator } from "./features/showcase/ShowcaseCaptureCoordinator";
 import {
@@ -155,6 +157,13 @@ const SettingsContentStack = createNativeStackNavigator({
       linking: "environments",
       options: {
         title: "Environments",
+      },
+    }),
+    SettingsEnvironmentAccess: createNativeStackScreen({
+      screen: ConnectionAccessRouteScreen,
+      linking: "environments/:environmentId/access",
+      options: {
+        title: "Connection Access",
       },
     }),
     SettingsEnvironmentNew: createNativeStackScreen({
@@ -330,6 +339,7 @@ const WORKSPACE_OVERLAY_ROUTES = new Set([
   "GitConfirm",
   "GitOverview",
   "NewTaskSheet",
+  "ProjectTodos",
   "SettingsLegal",
   "SettingsSheet",
   "ThreadReviewComment",
@@ -513,6 +523,21 @@ export const RootStack = createNativeStackNavigator({
           : {
               ...FORM_SHEET_PRESENTATION_OPTIONS,
               sheetAllowedDetents: [1],
+              sheetGrabberVisible: true,
+            }),
+      },
+    }),
+    ProjectTodos: createNativeStackScreen({
+      screen: ProjectTodosRouteScreen,
+      linking: "todos",
+      options: {
+        title: "Tasks & notes",
+        gestureEnabled: true,
+        ...(Platform.OS === "android"
+          ? { presentation: "card" as const, headerShown: false }
+          : {
+              ...FORM_SHEET_PRESENTATION_OPTIONS,
+              sheetAllowedDetents: [0.7, 0.92],
               sheetGrabberVisible: true,
             }),
       },

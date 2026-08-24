@@ -15,6 +15,8 @@ import {
 import { projectScriptCwd, projectScriptRuntimeEnv } from "@t3tools/shared/projectScripts";
 import { Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { AsyncResult } from "effect/unstable/reactivity";
 import { useWorkspaceState } from "../../state/workspace";
 import { useEnvironmentQuery } from "../../state/query";
 import { dismissGitActionResult, useGitActionProgress } from "../../state/use-vcs-action-state";
@@ -22,9 +24,11 @@ import { vcsEnvironment } from "../../state/vcs";
 
 import { EmptyState } from "../../components/EmptyState";
 import {
+  AndroidHeaderIconButton,
   AndroidScreenHeader,
   type AndroidHeaderAction,
 } from "../../components/AndroidScreenHeader";
+import { AndroidAnchoredMenu } from "../../components/AndroidAnchoredMenu";
 import { LoadingScreen } from "../../components/LoadingScreen";
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
@@ -63,7 +67,9 @@ import { useSelectedThreadRequests } from "../../state/use-selected-thread-reque
 import { useSelectedThreadWorktree } from "../../state/use-selected-thread-worktree";
 import { useThreadComposerState } from "../../state/use-thread-composer-state";
 import { threadEnvironment } from "../../state/threads";
+import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { projectThreadContentPresentation } from "./threadContentPresentation";
+import { useThreadListActions } from "../home/useThreadListActions";
 import {
   useAdaptiveWorkspaceLayout,
   useAdaptiveWorkspacePaneRole,
@@ -75,6 +81,7 @@ import {
   ThreadInspectorContentStack,
   type ThreadInspectorMode,
 } from "./thread-inspector-content-stack";
+import { markThreadVisitedAt } from "./thread-completion";
 
 interface ThreadInspectorSelection {
   readonly routeThreadIdentity: string | null;
@@ -192,8 +199,24 @@ function ThreadRouteContent(
   const { onReconnectEnvironment } = useRemoteConnections();
   const { selectedThread, selectedThreadProject, selectedEnvironmentConnection } =
     useThreadSelection();
+  const preferencesResult = useAtomValue(mobilePreferencesAtom);
+  const savePreferences = useAtomSet(updateMobilePreferencesAtom);
+  const threadLastVisitedAtById = AsyncResult.isSuccess(preferencesResult)
+    ? (preferencesResult.value.threadLastVisitedAtById ?? {})
+    : {};
   const selectedThreadDetailState = props.selectedThreadDetailState;
   const selectedThreadDetail = Option.getOrNull(selectedThreadDetailState.data);
+  const selectedThreadCompletedAt = selectedThread?.latestTurn?.completedAt;
+  useEffect(() => {
+    if (!selectedThread || !selectedThreadCompletedAt) return;
+    const next = markThreadVisitedAt(
+      threadLastVisitedAtById,
+      scopedThreadKey(selectedThread.environmentId, selectedThread.id),
+      selectedThreadCompletedAt,
+    );
+    if (next === threadLastVisitedAtById) return;
+    savePreferences({ threadLastVisitedAtById: next });
+  }, [savePreferences, selectedThread, selectedThreadCompletedAt, threadLastVisitedAtById]);
   // "Load earlier turns" header state for windowed (paginated) thread loads.
   const loadEarlierTurns = useMemo(() => {
     if (selectedThread === null || !threadHasOlderTurns(selectedThreadDetailState)) {
@@ -213,6 +236,7 @@ function ThreadRouteContent(
   const gitState = useSelectedThreadGitState();
   const gitActions = useSelectedThreadGitActions();
   const requests = useSelectedThreadRequests();
+  const { renameThread } = useThreadListActions();
   const interruptThreadTurn = useAtomCommand(threadEnvironment.interruptTurn, "thread interrupt");
   const navigation = useNavigation();
   const params = props.route.params;
@@ -478,6 +502,13 @@ function ThreadRouteContent(
   const handleOpenConnectionEditor = useCallback(() => {
     void navigation.navigate("Connections");
   }, [navigation]);
+  const handleOpenTodos = useCallback(() => {
+    if (!selectedThread || !selectedThreadProject) return;
+    navigation.navigate("ProjectTodos", {
+      environmentId: String(selectedThread.environmentId),
+      projectId: String(selectedThreadProject.id),
+    });
+  }, [navigation, selectedThread, selectedThreadProject]);
   const handleStopThread = useCallback(() => {
     if (
       !selectedThread ||
@@ -630,8 +661,10 @@ function ThreadRouteContent(
     terminalSessions: terminalMenuSessions,
     showDirectFileControl: layout.usesSplitView,
     onOpenTerminal: handleOpenTerminal,
+    onOpenTodos: handleOpenTodos,
     onOpenNewTerminal: handleOpenNewTerminal,
     onRunProjectScript: handleRunProjectScript,
+    onRenameThread: () => selectedThread && renameThread(selectedThread),
     onPull: gitActions.onPullSelectedThreadBranch,
     onRunAction: gitActions.onRunSelectedThreadGitAction,
   };
@@ -689,25 +722,6 @@ function ThreadRouteContent(
         onPress: props.onReturnToThread,
       });
     }
-    if (selectedThreadCwd !== null) {
-      actions.push({
-        accessibilityLabel: "Open files",
-        icon: "folder",
-        onPress: handleOpenFilesInspector,
-      });
-    }
-    if (selectedThreadProject?.workspaceRoot) {
-      actions.push({
-        accessibilityLabel: "Open terminal",
-        icon: "terminal",
-        onPress: () => handleOpenTerminal(null),
-      });
-    }
-    actions.push({
-      accessibilityLabel: "Open git controls",
-      icon: "point.topleft.down.curvedto.point.bottomright.up",
-      onPress: handleOpenGitInspector,
-    });
     if (fileInspector.supported && selectedThreadCwd !== null) {
       actions.push({
         accessibilityLabel: "Toggle inspector",
@@ -716,16 +730,49 @@ function ThreadRouteContent(
       });
     }
     return actions;
-  }, [
-    fileInspector.supported,
-    handleOpenFilesInspector,
-    handleOpenTerminal,
-    handleOpenGitInspector,
-    handleToggleInspector,
-    props.onReturnToThread,
-    selectedThreadCwd,
-    selectedThreadProject?.workspaceRoot,
-  ]);
+  }, [fileInspector.supported, handleToggleInspector, props.onReturnToThread, selectedThreadCwd]);
+  const androidThreadMenuActions = useMemo(
+    () => [
+      { id: "rename", title: "Rename thread", image: "pencil" },
+      {
+        id: "todos",
+        title: "Tasks and notes",
+        image: "doc.text",
+        attributes: selectedThreadProject ? undefined : { disabled: true as const },
+      },
+      {
+        id: "files",
+        title: "Files",
+        image: "folder",
+        attributes: selectedThreadCwd === null ? { disabled: true as const } : undefined,
+      },
+      {
+        id: "terminal",
+        title: "Terminal",
+        image: "terminal",
+        attributes: selectedThreadProject?.workspaceRoot ? undefined : { disabled: true as const },
+      },
+      { id: "git", title: "Git", image: "point.topleft.down.curvedto.point.bottomright.up" },
+    ],
+    [selectedThreadCwd, selectedThreadProject],
+  );
+  const handleAndroidThreadMenuAction = useCallback(
+    (event: { nativeEvent: { event: string } }) => {
+      if (event.nativeEvent.event === "rename" && selectedThread) renameThread(selectedThread);
+      if (event.nativeEvent.event === "todos") handleOpenTodos();
+      if (event.nativeEvent.event === "files") handleOpenFilesInspector();
+      if (event.nativeEvent.event === "terminal") handleOpenTerminal(null);
+      if (event.nativeEvent.event === "git") handleOpenGitInspector();
+    },
+    [
+      handleOpenFilesInspector,
+      handleOpenGitInspector,
+      handleOpenTodos,
+      handleOpenTerminal,
+      renameThread,
+      selectedThread,
+    ],
+  );
 
   // Deep links / cold starts land with Thread as the ONLY route, where the
   // native back button does not render. Provide an explicit Home escape for
@@ -857,6 +904,15 @@ function ThreadRouteContent(
           subtitle={headerSubtitle}
           onBack={layout.usesSplitView ? undefined : () => navigation.goBack()}
           actions={androidHeaderActions}
+          trailing={
+            <AndroidAnchoredMenu
+              actions={androidThreadMenuActions}
+              onPressAction={handleAndroidThreadMenuAction}
+              title="Thread actions"
+            >
+              <AndroidHeaderIconButton accessibilityLabel="Thread actions" icon="ellipsis" />
+            </AndroidAnchoredMenu>
+          }
         />
       ) : null}
 

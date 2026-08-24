@@ -440,6 +440,10 @@ function AdaptiveWorkspaceLayoutContent(
     navigation.navigate("NewTaskSheet", { screen: "NewTask" });
   }, [navigation]);
 
+  const handleOpenTodos = useCallback(() => {
+    navigation.navigate("ProjectTodos", {});
+  }, [navigation]);
+
   // Minted here (root stack navigation) so the sidebar pane stays free of
   // navigation hooks — on iOS it renders inside an independent nav tree.
   const handleOpenEnvironmentSettings = useCallback(() => {
@@ -541,6 +545,7 @@ function AdaptiveWorkspaceLayoutContent(
                     onRequestVisibility={revealPrimarySidebar}
                     selectedThreadKey={selectedThreadKey}
                     onOpenSettings={handleOpenSettings}
+                    onOpenTodos={handleOpenTodos}
                     onOpenEnvironmentSettings={handleOpenEnvironmentSettings}
                     onNewThreadInProject={handleNewThreadInProject}
                     onSelectThread={handleSelectThread}

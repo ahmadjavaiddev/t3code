@@ -58,6 +58,7 @@ const STATUS_LABEL_BY_STATUS: Partial<
   input: { label: "Input", className: "text-indigo-600 dark:text-indigo-300" },
   working: { label: "Working", className: "text-sky-600 dark:text-sky-400" },
   failed: { label: "Failed", className: "text-red-700 dark:text-red-300" },
+  done: { label: "Done", className: "text-emerald-700 dark:text-emerald-300" },
 };
 
 function threadTimeLabel(thread: EnvironmentThreadShell): string {
@@ -342,6 +343,8 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   /** Highlights the thread open in the detail pane (iPad split view). The
       compact Home list never sets it — phones navigate away on select. */
   readonly selected?: boolean;
+  /** Latest completion this device has viewed. Drives the transient Done label. */
+  readonly lastVisitedAt?: string;
   /** Override for narrow panes (iPad sidebar); defaults to window width. */
   readonly fullSwipeWidth?: number;
   readonly onSelectThread: (thread: EnvironmentThreadShell) => void;
@@ -427,7 +430,12 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   const sidebarPane = props.pane === "sidebar";
   const selected = props.selected === true;
 
-  const status = resolveThreadListV2Status(thread);
+  // The open split-view thread is already being read. Folding its completion
+  // into the resolver prevents a one-frame Done flash before persistence lands.
+  const status = resolveThreadListV2Status(
+    thread,
+    selected ? (thread.latestTurn?.completedAt ?? props.lastVisitedAt) : props.lastVisitedAt,
+  );
   const statusLabel = STATUS_LABEL_BY_STATUS[status];
   const timeLabel = threadTimeLabel(thread);
 
@@ -558,12 +566,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     [pinMenuItem, snoozePresetActions, titleMenuItems],
   );
   const cardMenuActions = useMemo<MenuAction[]>(
-    () => [
-      CARD_MENU_ACTIONS[0]!,
-      ...pinMenuItem,
-      ...titleMenuItems,
-      ...CARD_MENU_ACTIONS.slice(1),
-    ],
+    () => [CARD_MENU_ACTIONS[0]!, ...pinMenuItem, ...titleMenuItems, ...CARD_MENU_ACTIONS.slice(1)],
     [pinMenuItem, titleMenuItems],
   );
   const slimMenuActions = useMemo<MenuAction[]>(

@@ -86,6 +86,7 @@ import {
   THREAD_LIST_V2_SETTLED_PAGE_COUNT,
   type ThreadListV2ListItem,
 } from "./threadListV2";
+import { resolveThreadCompletionVisitedAt } from "./thread-completion";
 
 /** The sidebar list serves both lists: v1 grouped items or, when the Thread
     List v2 beta is on, flat v2 rows with queued tasks spliced in, and a settled
@@ -102,6 +103,7 @@ interface ThreadNavigationSidebarProps {
   readonly visible: boolean;
   readonly selectedThreadKey: string | null;
   readonly onOpenSettings: () => void;
+  readonly onOpenTodos: () => void;
   readonly onOpenEnvironmentSettings: () => void;
   readonly onNewThreadInProject: (project: EnvironmentProject) => void;
   readonly onSearchQueryChange: (query: string) => void;
@@ -178,6 +180,12 @@ function ThreadNavigationSidebarPane(
   const autoSettleOnMerge =
     !AsyncResult.isSuccess(preferencesResult) ||
     preferencesResult.value.autoSettleOnMerge !== false;
+  const threadLastVisitedAtById = AsyncResult.isSuccess(preferencesResult)
+    ? (preferencesResult.value.threadLastVisitedAtById ?? {})
+    : {};
+  const threadCompletionTrackingStartedAt = AsyncResult.isSuccess(preferencesResult)
+    ? preferencesResult.value.threadCompletionTrackingStartedAt
+    : undefined;
   const pendingTasks = usePendingNewTasks();
   const { openPendingTask, confirmDeletePendingTask } = usePendingTaskListActions();
   const environments = useMemo(
@@ -781,6 +789,8 @@ function ThreadNavigationSidebarPane(
       savedConnectionsById,
       serverConfigs,
       snoozePresetMinute: nowMinute,
+      threadCompletionTrackingStartedAt,
+      threadLastVisitedAtById,
       threadSearchMatchByKey,
     }),
     [
@@ -791,6 +801,8 @@ function ThreadNavigationSidebarPane(
       savedConnectionsById,
       serverConfigs,
       nowMinute,
+      threadCompletionTrackingStartedAt,
+      threadLastVisitedAtById,
       threadSearchMatchByKey,
     ],
   );
@@ -916,6 +928,11 @@ function ThreadNavigationSidebarPane(
                 }),
               )}
               searchQuery={props.searchQuery}
+              lastVisitedAt={resolveThreadCompletionVisitedAt(
+                threadLastVisitedAtById,
+                scopedThreadKey(thread.environmentId, thread.id),
+                threadCompletionTrackingStartedAt,
+              )}
               pane="sidebar"
               selected={
                 scopedThreadKey(thread.environmentId, thread.id) === props.selectedThreadKey
@@ -1040,6 +1057,11 @@ function ThreadNavigationSidebarPane(
                 }),
               )}
               searchQuery={props.searchQuery}
+              lastVisitedAt={resolveThreadCompletionVisitedAt(
+                threadLastVisitedAtById,
+                scopedThreadKey(thread.environmentId, thread.id),
+                threadCompletionTrackingStartedAt,
+              )}
               selected={
                 scopedThreadKey(thread.environmentId, thread.id) === props.selectedThreadKey
               }
@@ -1093,6 +1115,8 @@ function ThreadNavigationSidebarPane(
       savedConnectionsById,
       serverConfigs,
       shelfPreferencesLoaded,
+      threadCompletionTrackingStartedAt,
+      threadLastVisitedAtById,
       threadSearchMatchByKey,
       titleRegenerationEnvironmentIds,
       settleThread,
@@ -1149,9 +1173,10 @@ function ThreadNavigationSidebarPane(
       createSidebarHeaderItems({
         filterIcon,
         filterMenu,
+        onOpenTodos: props.onOpenTodos,
         onOpenSettings: props.onOpenSettings,
       }),
-    [filterIcon, filterMenu, props.onOpenSettings],
+    [filterIcon, filterMenu, props.onOpenSettings, props.onOpenTodos],
   );
   // Snoozed threads need no special case: the shelf header is a list row
   // even while collapsed.
@@ -1315,7 +1340,10 @@ function ThreadNavigationSidebarPane(
             <ControlPillMenu actions={listMenuActions} onPressAction={handleListMenuAction}>
               <SidebarFilterButton accessibilityLabel="Filter and sort threads" icon={filterIcon} />
             </ControlPillMenu>
-            <SidebarHeaderActions onOpenSettings={props.onOpenSettings} />
+            <SidebarHeaderActions
+              onOpenSettings={props.onOpenSettings}
+              onOpenTodos={props.onOpenTodos}
+            />
           </View>
         </View>
 

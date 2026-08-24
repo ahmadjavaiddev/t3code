@@ -4,12 +4,13 @@ import { Pressable, View } from "react-native";
 import { useThemeColor } from "../../lib/useThemeColor";
 
 export interface SidebarHeaderActionsProps {
+  readonly onOpenTodos: () => void;
   readonly onOpenSettings: () => void;
 }
 
 function FallbackHeaderButton(props: {
   readonly accessibilityLabel: string;
-  readonly icon: "gearshape" | "square.and.pencil";
+  readonly icon: "doc.text" | "gearshape" | "square.and.pencil";
   readonly onPress: () => void;
 }) {
   const iconColor = useThemeColor("--color-foreground");
@@ -30,6 +31,11 @@ function FallbackHeaderButton(props: {
 export function SidebarHeaderActions(props: SidebarHeaderActionsProps) {
   return (
     <View className="flex-row items-center gap-0.5">
+      <FallbackHeaderButton
+        accessibilityLabel="Open tasks and notes"
+        icon="doc.text"
+        onPress={props.onOpenTodos}
+      />
       <FallbackHeaderButton
         accessibilityLabel="Open settings"
         icon="gearshape"

@@ -70,6 +70,7 @@ type ThreadGitHeaderActionItems = {
   readonly terminal: HeaderItem;
   readonly files: HeaderItem;
   readonly git: HeaderItem;
+  readonly more: HeaderItem;
 };
 type QuickActionIcon =
   | "arrow.down.circle"
@@ -102,8 +103,10 @@ type ThreadGitControlsProps = ThreadGitMenuProps & {
   readonly showActionControls?: boolean;
   readonly showDirectFileControl?: boolean;
   readonly onOpenTerminal: (terminalId?: string | null) => void;
+  readonly onOpenTodos: () => void;
   readonly onOpenNewTerminal: () => void;
   readonly onRunProjectScript: (script: ProjectScript) => Promise<void>;
+  readonly onRenameThread: () => void;
 };
 
 function useThreadGitControlModel(props: ThreadGitMenuProps) {
@@ -249,8 +252,8 @@ function useThreadGitControlModel(props: ThreadGitMenuProps) {
 function useThreadGitHeaderActionItems(props: ThreadGitControlsProps): ThreadGitHeaderActionItems {
   const model = useThreadGitControlModel(props);
 
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    const items = {
       terminal: {
         accessibilityLabel: "Open terminal",
         disabled: !props.canOpenTerminal,
@@ -366,44 +369,82 @@ function useThreadGitHeaderActionItems(props: ThreadGitControlsProps): ThreadGit
         type: "menu",
         variant: "plain",
       },
-    }),
-    [
-      model.currentBranchLabel,
-      model.isRepo,
-      model.openFiles,
-      model.openGitInspector,
-      model.openReview,
-      model.quickAction.disabled,
-      model.quickAction.label,
-      model.quickActionHint,
-      model.quickActionIcon,
-      model.runQuickAction,
-      props.canOpenFiles,
-      props.canOpenTerminal,
-      props.gitStatus,
-      props.onOpenNewTerminal,
-      props.onOpenTerminal,
-      props.onRunProjectScript,
-      props.projectScripts,
-      props.terminalSessions,
-    ],
-  );
+    };
+    return {
+      ...items,
+      more: {
+        accessibilityLabel: "Thread actions",
+        icon: { name: "ellipsis", type: "sfSymbol" },
+        identifier: "thread-right-more",
+        label: "More",
+        menu: {
+          items: [
+            {
+              icon: { name: "pencil", type: "sfSymbol" },
+              label: "Rename thread",
+              onPress: props.onRenameThread,
+              type: "action",
+            },
+            {
+              icon: { name: "list.bullet.clipboard", type: "sfSymbol" },
+              label: "Tasks and notes",
+              onPress: props.onOpenTodos,
+              type: "action",
+            },
+            {
+              disabled: !props.canOpenFiles,
+              icon: { name: "folder", type: "sfSymbol" },
+              label: "Files",
+              onPress: model.openFiles,
+              type: "action",
+            },
+            {
+              ...items.terminal.menu,
+              icon: items.terminal.icon,
+              label: "Terminal",
+              type: "submenu",
+            },
+            { ...items.git.menu, icon: items.git.icon, label: "Git", type: "submenu" },
+          ],
+          title: "Thread actions",
+        },
+        sharesBackground: true,
+        type: "menu",
+        variant: "plain",
+      },
+    };
+  }, [
+    model.currentBranchLabel,
+    model.isRepo,
+    model.openFiles,
+    model.openGitInspector,
+    model.openReview,
+    model.quickAction.disabled,
+    model.quickAction.label,
+    model.quickActionHint,
+    model.quickActionIcon,
+    model.runQuickAction,
+    props.canOpenFiles,
+    props.canOpenTerminal,
+    props.gitStatus,
+    props.onOpenNewTerminal,
+    props.onOpenTerminal,
+    props.onOpenTodos,
+    props.onRenameThread,
+    props.onRunProjectScript,
+    props.projectScripts,
+    props.terminalSessions,
+  ]);
 }
 
 export function useThreadGitRightHeaderItems(props: ThreadGitControlsProps): HeaderItems {
   const actionItems = useThreadGitHeaderActionItems(props);
-  return useMemo(
-    () => [actionItems.git, actionItems.files, actionItems.terminal] as HeaderItems,
-    [actionItems],
-  );
+  return useMemo(() => [actionItems.more] as HeaderItems, [actionItems]);
 }
 
 export function useThreadGitCenterHeaderItems(props: ThreadGitControlsProps): HeaderItems {
   const actionItems = useThreadGitHeaderActionItems(props);
-  return useMemo(
-    () => [actionItems.files, actionItems.git, actionItems.terminal] as HeaderItems,
-    [actionItems],
-  );
+  return useMemo(() => [actionItems.more] as HeaderItems, [actionItems]);
 }
 
 export function ThreadGitControls(props: ThreadGitControlsProps) {
@@ -426,10 +467,16 @@ export function ThreadGitControls(props: ThreadGitControlsProps) {
       ) : null}
       {showActionControls ? (
         <NativeHeaderToolbar.Menu
-          icon="terminal"
-          disabled={!props.canOpenTerminal}
+          accessibilityLabel="Thread actions"
+          icon="ellipsis"
           separateBackground
         >
+          <NativeHeaderToolbar.MenuAction icon="pencil" onPress={props.onRenameThread}>
+            <NativeHeaderToolbar.Label>Rename thread</NativeHeaderToolbar.Label>
+          </NativeHeaderToolbar.MenuAction>
+          <NativeHeaderToolbar.MenuAction icon="list.bullet.clipboard" onPress={props.onOpenTodos}>
+            <NativeHeaderToolbar.Label>Tasks and notes</NativeHeaderToolbar.Label>
+          </NativeHeaderToolbar.MenuAction>
           {props.projectScripts.length > 0 ? (
             props.projectScripts.map((script) => (
               <NativeHeaderToolbar.MenuAction
@@ -473,23 +520,22 @@ export function ThreadGitControls(props: ThreadGitControlsProps) {
           ))}
           <NativeHeaderToolbar.MenuAction
             icon="plus"
+            disabled={!props.canOpenTerminal}
             onPress={props.onOpenNewTerminal}
             subtitle="Start another shell for this thread"
           >
             <NativeHeaderToolbar.Label>Open new terminal</NativeHeaderToolbar.Label>
           </NativeHeaderToolbar.MenuAction>
+          <NativeHeaderToolbar.MenuAction
+            disabled={!props.canOpenFiles}
+            icon="folder"
+            onPress={model.openFiles}
+          >
+            <NativeHeaderToolbar.Label>Files</NativeHeaderToolbar.Label>
+          </NativeHeaderToolbar.MenuAction>
+          <ThreadGitMenu {...props} />
         </NativeHeaderToolbar.Menu>
       ) : null}
-      {showActionControls && props.showDirectFileControl ? (
-        <NativeHeaderToolbar.Button
-          accessibilityLabel="Open files"
-          disabled={!props.canOpenFiles}
-          icon="folder"
-          onPress={model.openFiles}
-          separateBackground
-        />
-      ) : null}
-      {showActionControls ? <ThreadGitMenu {...props} /> : null}
     </NativeHeaderToolbar>
   );
 }

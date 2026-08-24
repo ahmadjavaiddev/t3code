@@ -1,4 +1,4 @@
-import type { EnvironmentId } from "@t3tools/contracts";
+import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -7,7 +7,7 @@ import * as Schema from "effect/Schema";
 import type { SQLiteDatabase } from "expo-sqlite";
 
 const DATABASE_NAME = "t3code-client.db";
-const DATABASE_SCHEMA_VERSION = 1;
+const DATABASE_SCHEMA_VERSION = 2;
 const LEGACY_CACHE_DIRECTORIES = [
   "connection-shell-snapshots",
   "shell-snapshots",
@@ -31,6 +31,30 @@ export interface StoredPreferencesJson {
   readonly updatedAt: number;
 }
 
+export interface StoredProjectTodo {
+  readonly id: string;
+  readonly environmentId: EnvironmentId;
+  readonly projectId: ProjectId;
+  readonly projectTitle: string;
+  readonly text: string;
+  readonly completed: boolean;
+  readonly createdAt: number;
+  readonly updatedAt: number;
+}
+
+const StoredProjectTodoRows = Schema.Array(
+  Schema.Struct({
+    id: Schema.String,
+    environmentId: Schema.String,
+    projectId: Schema.String,
+    projectTitle: Schema.String,
+    text: Schema.String,
+    completed: Schema.Number,
+    createdAt: Schema.Number,
+    updatedAt: Schema.Number,
+  }),
+);
+
 const ClientCacheSummaryRows = Schema.Array(
   Schema.Struct({
     environmentId: Schema.String,
@@ -52,6 +76,9 @@ const MobileDatabaseOperation = Schema.Literals([
   "inspect-caches",
   "load-preferences",
   "save-preferences",
+  "load-project-todos",
+  "save-project-todo",
+  "remove-project-todo",
 ]);
 
 export class MobileDatabaseError extends Schema.TaggedErrorClass<MobileDatabaseError>()(
@@ -224,6 +251,9 @@ export class MobileDatabase extends Context.Service<
       payload: string,
       updatedAt: number,
     ) => Effect.Effect<void, MobileDatabaseError>;
+    readonly loadProjectTodos: Effect.Effect<ReadonlyArray<StoredProjectTodo>, MobileDatabaseError>;
+    readonly saveProjectTodo: (todo: StoredProjectTodo) => Effect.Effect<void, MobileDatabaseError>;
+    readonly removeProjectTodo: (id: string) => Effect.Effect<void, MobileDatabaseError>;
   }
 >()("@t3tools/mobile/persistence/MobileDatabase") {}
 
@@ -265,6 +295,20 @@ const makeAvailable = Effect.gen(function* () {
                 payload TEXT NOT NULL,
                 updated_at INTEGER NOT NULL
               );
+
+              CREATE TABLE IF NOT EXISTS project_todos (
+                id TEXT PRIMARY KEY NOT NULL,
+                environment_id TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                project_title TEXT NOT NULL,
+                text TEXT NOT NULL,
+                completed INTEGER NOT NULL CHECK (completed IN (0, 1)),
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+              );
+
+              CREATE INDEX IF NOT EXISTS project_todos_project_created
+                ON project_todos (environment_id, project_id, created_at DESC);
             `);
       });
       if ((schema?.user_version ?? 0) < DATABASE_SCHEMA_VERSION) {
@@ -399,6 +443,66 @@ const makeAvailable = Effect.gen(function* () {
         catch: databaseError("save-preferences"),
       }).pipe(Effect.asVoid),
     ),
+    loadProjectTodos: Effect.tryPromise({
+      try: () =>
+        database.getAllAsync<unknown>(`
+          SELECT
+            id,
+            environment_id AS environmentId,
+            project_id AS projectId,
+            project_title AS projectTitle,
+            text,
+            completed,
+            created_at AS createdAt,
+            updated_at AS updatedAt
+          FROM project_todos
+          ORDER BY completed ASC, created_at DESC
+        `),
+      catch: databaseError("load-project-todos"),
+    }).pipe(
+      Effect.flatMap(Schema.decodeUnknownEffect(StoredProjectTodoRows)),
+      Effect.mapError(databaseError("load-project-todos")),
+      Effect.map((todos) =>
+        todos.map((todo) => ({
+          ...todo,
+          environmentId: todo.environmentId as EnvironmentId,
+          projectId: todo.projectId as ProjectId,
+          completed: todo.completed === 1,
+        })),
+      ),
+    ),
+    saveProjectTodo: Effect.fn("MobileDatabase.saveProjectTodo")((todo) =>
+      Effect.tryPromise({
+        try: () =>
+          database.runAsync(
+            `INSERT INTO project_todos
+              (id, environment_id, project_id, project_title, text, completed, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT (id) DO UPDATE SET
+               environment_id = excluded.environment_id,
+               project_id = excluded.project_id,
+               project_title = excluded.project_title,
+               text = excluded.text,
+               completed = excluded.completed,
+               updated_at = excluded.updated_at`,
+            todo.id,
+            todo.environmentId,
+            todo.projectId,
+            todo.projectTitle,
+            todo.text,
+            todo.completed ? 1 : 0,
+            todo.createdAt,
+            todo.updatedAt,
+          ),
+        catch: databaseError("save-project-todo"),
+      }).pipe(Effect.asVoid),
+    ),
+    removeProjectTodo: Effect.fn("MobileDatabase.removeProjectTodo")((id) =>
+      Effect.tryPromise({
+        try: () => database.runAsync("DELETE FROM project_todos WHERE id = ?", id),
+        catch: databaseError("remove-project-todo"),
+      }).pipe(Effect.asVoid),
+    ),
   });
 });
 
@@ -414,6 +518,9 @@ function makeUnavailable(error: MobileDatabaseError): MobileDatabase["Service"] 
     inspectCaches: fail,
     loadPreferencesJson: fail,
     savePreferencesJson: () => fail,
+    loadProjectTodos: fail,
+    saveProjectTodo: () => fail,
+    removeProjectTodo: () => fail,
   });
 }
 

@@ -3,7 +3,7 @@ import {
   RelayConnectionRegistration,
   RelayConnectionTarget,
 } from "@t3tools/client-runtime/connection";
-import type { EnvironmentId } from "@t3tools/contracts";
+import type { AuthEnvironmentScope, EnvironmentId } from "@t3tools/contracts";
 import type {
   RelayClientEnvironmentRecord,
   RelayEnvironmentStatusResponse,
@@ -70,7 +70,8 @@ export function useConnectionController() {
   );
 
   const connectPairingUrl = useCallback(
-    (pairingUrl: string) => connectPairingUrlMutation(pairingUrl),
+    (pairingUrl: string, scopes?: ReadonlyArray<AuthEnvironmentScope>) =>
+      connectPairingUrlMutation({ pairingUrl, ...(scopes ? { scopes } : {}) }),
     [connectPairingUrlMutation],
   );
   const connectRelayEnvironment = useCallback(

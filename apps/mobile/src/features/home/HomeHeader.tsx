@@ -50,6 +50,7 @@ export function HomeHeader(props: {
   readonly onThreadSortOrderChange: (sortOrder: SidebarThreadSortOrder) => void;
   readonly onOpenEnvironments: () => void;
   readonly onOpenSettings: () => void;
+  readonly onOpenTodos: () => void;
   readonly onStartNewTask: () => void;
 }) {
   if (Platform.OS === "android") {
@@ -231,6 +232,15 @@ function AndroidHomeHeader(props: HomeHeaderProps) {
               }
             />
 
+            <Pressable
+              accessibilityLabel="Open tasks and notes"
+              accessibilityRole="button"
+              onPress={props.onOpenTodos}
+              className="size-11 items-center justify-center rounded-full bg-subtle"
+            >
+              <SymbolView name="doc.text" size={18} tintColor={iconColor} type="monochrome" />
+            </Pressable>
+
             <ControlPillMenu
               actions={menuActions}
               isAnchoredToRight
@@ -329,6 +339,14 @@ function IosHomeHeader(props: HomeHeaderProps) {
           unstable_headerRightItems:
             Platform.OS === "ios"
               ? () => [
+                  withNativeGlassHeaderItem({
+                    accessibilityLabel: "Open tasks and notes",
+                    icon: { name: "list.bullet.clipboard", type: "sfSymbol" } as const,
+                    identifier: "home-todos",
+                    label: "",
+                    onPress: props.onOpenTodos,
+                    type: "button",
+                  }),
                   withNativeGlassHeaderItem({
                     accessibilityLabel: "Open settings",
                     icon: { name: "ellipsis", type: "sfSymbol" } as const,
