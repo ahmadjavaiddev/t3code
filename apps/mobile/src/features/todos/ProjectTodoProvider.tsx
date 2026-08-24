@@ -12,18 +12,29 @@ import {
 
 import { loadProjectTodos, removeProjectTodo, saveProjectTodo } from "../../persistence/imperative";
 import { uuidv4 } from "../../lib/uuid";
-import { applyProjectTodoEdit, sortProjectTodos, type ProjectTodo } from "./project-todos";
+import {
+  applyProjectTodoEdit,
+  sortProjectTodos,
+  toggleProjectTodoCompletion,
+  type ProjectTodo,
+  type ProjectTodoStatus,
+} from "./project-todos";
 
 interface ProjectTodoContextValue {
   readonly todos: ReadonlyArray<ProjectTodo>;
   readonly isLoading: boolean;
   readonly error: Error | null;
-  readonly addTodo: (text: string, project: EnvironmentProject) => Promise<boolean>;
+  readonly addTodo: (
+    text: string,
+    project: EnvironmentProject,
+    status: ProjectTodoStatus,
+  ) => Promise<boolean>;
   readonly toggleTodo: (todo: ProjectTodo) => Promise<void>;
   readonly updateTodo: (
     todo: ProjectTodo,
     text: string,
     project: EnvironmentProject | null,
+    status: ProjectTodoStatus,
   ) => Promise<boolean>;
   readonly deleteTodo: (todo: ProjectTodo) => Promise<void>;
   readonly dismissError: () => void;
@@ -81,7 +92,7 @@ export function ProjectTodoProvider(props: PropsWithChildren) {
   );
 
   const addTodo = useCallback(
-    async (text: string, project: EnvironmentProject) => {
+    async (text: string, project: EnvironmentProject, status: ProjectTodoStatus) => {
       const normalizedText = text.trim();
       if (!normalizedText) return false;
       const now = Date.now();
@@ -91,7 +102,7 @@ export function ProjectTodoProvider(props: PropsWithChildren) {
         projectId: project.id,
         projectTitle: project.title,
         text: normalizedText,
-        completed: false,
+        status,
         createdAt: now,
         updatedAt: now,
       };
@@ -103,7 +114,7 @@ export function ProjectTodoProvider(props: PropsWithChildren) {
 
   const toggleTodo = useCallback(
     async (todo: ProjectTodo) => {
-      const updated = { ...todo, completed: !todo.completed, updatedAt: Date.now() };
+      const updated = toggleProjectTodoCompletion(todo, Date.now());
       setTodos((current) =>
         sortProjectTodos(
           current.map((candidate) => (candidate.id === todo.id ? updated : candidate)),
@@ -115,8 +126,13 @@ export function ProjectTodoProvider(props: PropsWithChildren) {
   );
 
   const updateTodo = useCallback(
-    async (todo: ProjectTodo, text: string, project: EnvironmentProject | null) => {
-      const updated = applyProjectTodoEdit(todo, { text, project, updatedAt: Date.now() });
+    async (
+      todo: ProjectTodo,
+      text: string,
+      project: EnvironmentProject | null,
+      status: ProjectTodoStatus,
+    ) => {
+      const updated = applyProjectTodoEdit(todo, { text, project, status, updatedAt: Date.now() });
       if (!updated) return false;
       setTodos((current) =>
         sortProjectTodos(

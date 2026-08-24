@@ -7,7 +7,7 @@ import * as MobileStorage from "./mobile-storage";
 
 export type { Preferences } from "./mobile-preferences";
 export type { AgentAwarenessRegistrationRecord, RecentThreadShortcut } from "./mobile-storage";
-export type { StoredProjectTodo } from "./mobile-database";
+export type { ProjectTodoStatus, StoredProjectTodo } from "./mobile-database";
 export { MobilePreferencesLoadError, MobilePreferencesSaveError } from "./mobile-preferences";
 export {
   MobileDeviceIdGenerationError,

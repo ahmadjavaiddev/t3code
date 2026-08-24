@@ -7,7 +7,7 @@ import * as Schema from "effect/Schema";
 import type { SQLiteDatabase } from "expo-sqlite";
 
 const DATABASE_NAME = "t3code-client.db";
-const DATABASE_SCHEMA_VERSION = 2;
+const DATABASE_SCHEMA_VERSION = 3;
 const LEGACY_CACHE_DIRECTORIES = [
   "connection-shell-snapshots",
   "shell-snapshots",
@@ -37,10 +37,12 @@ export interface StoredProjectTodo {
   readonly projectId: ProjectId;
   readonly projectTitle: string;
   readonly text: string;
-  readonly completed: boolean;
+  readonly status: ProjectTodoStatus;
   readonly createdAt: number;
   readonly updatedAt: number;
 }
+
+export type ProjectTodoStatus = "todo" | "in-progress" | "completed";
 
 const StoredProjectTodoRows = Schema.Array(
   Schema.Struct({
@@ -49,11 +51,23 @@ const StoredProjectTodoRows = Schema.Array(
     projectId: Schema.String,
     projectTitle: Schema.String,
     text: Schema.String,
-    completed: Schema.Number,
+    statusCode: Schema.Number,
     createdAt: Schema.Number,
     updatedAt: Schema.Number,
   }),
 );
+
+function projectTodoStatusFromCode(code: number): ProjectTodoStatus {
+  if (code === 1) return "completed";
+  if (code === 2) return "in-progress";
+  return "todo";
+}
+
+function projectTodoStatusCode(status: ProjectTodoStatus): number {
+  if (status === "completed") return 1;
+  if (status === "in-progress") return 2;
+  return 0;
+}
 
 const ClientCacheSummaryRows = Schema.Array(
   Schema.Struct({
@@ -302,7 +316,7 @@ const makeAvailable = Effect.gen(function* () {
                 project_id TEXT NOT NULL,
                 project_title TEXT NOT NULL,
                 text TEXT NOT NULL,
-                completed INTEGER NOT NULL CHECK (completed IN (0, 1)),
+                completed INTEGER NOT NULL CHECK (completed IN (0, 1, 2)),
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL
               );
@@ -312,8 +326,37 @@ const makeAvailable = Effect.gen(function* () {
             `);
       });
       if ((schema?.user_version ?? 0) < DATABASE_SCHEMA_VERSION) {
-        const migrated = await migrateLegacyFileCaches(database);
-        if (migrated) {
+        await database.withExclusiveTransactionAsync(async (transaction) => {
+          await transaction.execAsync(`
+            ALTER TABLE project_todos RENAME TO project_todos_before_status;
+            DROP INDEX IF EXISTS project_todos_project_created;
+
+            CREATE TABLE project_todos (
+              id TEXT PRIMARY KEY NOT NULL,
+              environment_id TEXT NOT NULL,
+              project_id TEXT NOT NULL,
+              project_title TEXT NOT NULL,
+              text TEXT NOT NULL,
+              completed INTEGER NOT NULL CHECK (completed IN (0, 1, 2)),
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL
+            );
+
+            INSERT INTO project_todos
+              (id, environment_id, project_id, project_title, text, completed, created_at, updated_at)
+            SELECT
+              id, environment_id, project_id, project_title, text, completed, created_at, updated_at
+            FROM project_todos_before_status;
+
+            DROP TABLE project_todos_before_status;
+
+            CREATE INDEX project_todos_project_created
+              ON project_todos (environment_id, project_id, created_at DESC);
+          `);
+        });
+        const legacyCachesMigrated =
+          (schema?.user_version ?? 0) >= 2 || (await migrateLegacyFileCaches(database));
+        if (legacyCachesMigrated) {
           await database.execAsync(`PRAGMA user_version = ${DATABASE_SCHEMA_VERSION};`);
         }
       }
@@ -452,22 +495,24 @@ const makeAvailable = Effect.gen(function* () {
             project_id AS projectId,
             project_title AS projectTitle,
             text,
-            completed,
+            completed AS statusCode,
             created_at AS createdAt,
             updated_at AS updatedAt
           FROM project_todos
-          ORDER BY completed ASC, created_at DESC
+          ORDER BY
+            CASE completed WHEN 0 THEN 0 WHEN 2 THEN 1 ELSE 2 END,
+            created_at DESC
         `),
       catch: databaseError("load-project-todos"),
     }).pipe(
       Effect.flatMap(Schema.decodeUnknownEffect(StoredProjectTodoRows)),
       Effect.mapError(databaseError("load-project-todos")),
       Effect.map((todos) =>
-        todos.map((todo) => ({
+        todos.map(({ statusCode, ...todo }) => ({
           ...todo,
           environmentId: todo.environmentId as EnvironmentId,
           projectId: todo.projectId as ProjectId,
-          completed: todo.completed === 1,
+          status: projectTodoStatusFromCode(statusCode),
         })),
       ),
     ),
@@ -490,7 +535,7 @@ const makeAvailable = Effect.gen(function* () {
             todo.projectId,
             todo.projectTitle,
             todo.text,
-            todo.completed ? 1 : 0,
+            projectTodoStatusCode(todo.status),
             todo.createdAt,
             todo.updatedAt,
           ),

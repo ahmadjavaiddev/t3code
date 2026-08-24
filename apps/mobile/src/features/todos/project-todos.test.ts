@@ -2,9 +2,12 @@ import { describe, expect, it } from "vite-plus/test";
 import { EnvironmentId, ProjectId } from "@t3tools/contracts";
 
 import {
+  PROJECT_TODO_STATUSES,
   applyProjectTodoEdit,
   projectTodosForScope,
+  projectTodoStatusLabel,
   sortProjectTodos,
+  toggleProjectTodoCompletion,
   type ProjectTodo,
 } from "./project-todos";
 
@@ -14,7 +17,7 @@ const todo = (overrides: Partial<ProjectTodo>): ProjectTodo => ({
   projectId: ProjectId.make("project-1"),
   projectTitle: "T3 Code",
   text: "Check the mobile header",
-  completed: false,
+  status: "todo",
   createdAt: 1,
   updatedAt: 1,
   ...overrides,
@@ -55,6 +58,7 @@ describe("project todos", () => {
         defaultModelSelection: null,
         scripts: [],
       },
+      status: "in-progress",
       updatedAt: 42,
     });
 
@@ -63,9 +67,9 @@ describe("project todos", () => {
       projectId: "project-2",
       projectTitle: "Mobile",
       text: "moved note",
+      status: "in-progress",
       updatedAt: 42,
     });
-    expect(updated?.completed).toBe(original.completed);
     expect(updated?.createdAt).toBe(original.createdAt);
   });
 
@@ -74,19 +78,35 @@ describe("project todos", () => {
       applyProjectTodoEdit(todo({}), {
         text: "   ",
         project: null,
+        status: "completed",
         updatedAt: 42,
       }),
     ).toBeNull();
   });
 
-  it("keeps open items first and newest items first within each state", () => {
+  it("sorts to do, in progress, and completed items in workflow order", () => {
     expect(
       sortProjectTodos([
-        todo({ id: "completed-new", completed: true, createdAt: 4 }),
-        todo({ id: "open-old", createdAt: 1 }),
-        todo({ id: "completed-old", completed: true, createdAt: 2 }),
-        todo({ id: "open-new", createdAt: 3 }),
+        todo({ id: "completed", status: "completed", createdAt: 4 }),
+        todo({ id: "todo-old", createdAt: 1 }),
+        todo({ id: "in-progress", status: "in-progress", createdAt: 2 }),
+        todo({ id: "todo-new", createdAt: 3 }),
       ]).map((entry) => entry.id),
-    ).toEqual(["open-new", "open-old", "completed-new", "completed-old"]);
+    ).toEqual(["todo-new", "todo-old", "in-progress", "completed"]);
+  });
+
+  it("toggles completion without losing the intermediate status model", () => {
+    expect(toggleProjectTodoCompletion(todo({ status: "in-progress" }), 4).status).toBe(
+      "completed",
+    );
+    expect(toggleProjectTodoCompletion(todo({ status: "completed" }), 5).status).toBe("todo");
+  });
+
+  it("provides user-facing labels for every status", () => {
+    expect(PROJECT_TODO_STATUSES.map(projectTodoStatusLabel)).toEqual([
+      "To do",
+      "In progress",
+      "Completed",
+    ]);
   });
 });

@@ -1,9 +1,18 @@
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
 
-import type { StoredProjectTodo } from "../../persistence/imperative";
+import type { ProjectTodoStatus, StoredProjectTodo } from "../../persistence/imperative";
 
 export type ProjectTodo = StoredProjectTodo;
+export type { ProjectTodoStatus };
+
+export const PROJECT_TODO_STATUSES = ["todo", "in-progress", "completed"] as const;
+
+export function projectTodoStatusLabel(status: ProjectTodoStatus): string {
+  if (status === "in-progress") return "In progress";
+  if (status === "completed") return "Completed";
+  return "To do";
+}
 
 export interface ProjectTodoScope {
   readonly environmentId: EnvironmentId;
@@ -27,12 +36,25 @@ export function projectTodosForScope(
 }
 
 export function sortProjectTodos(todos: ReadonlyArray<ProjectTodo>): ReadonlyArray<ProjectTodo> {
+  const statusOrder: Readonly<Record<ProjectTodoStatus, number>> = {
+    todo: 0,
+    "in-progress": 1,
+    completed: 2,
+  };
   return [...todos].sort((left, right) => {
-    if (left.completed !== right.completed) {
-      return left.completed ? 1 : -1;
+    if (left.status !== right.status) {
+      return statusOrder[left.status] - statusOrder[right.status];
     }
     return right.createdAt - left.createdAt;
   });
+}
+
+export function toggleProjectTodoCompletion(todo: ProjectTodo, updatedAt: number): ProjectTodo {
+  return {
+    ...todo,
+    status: todo.status === "completed" ? "todo" : "completed",
+    updatedAt,
+  };
 }
 
 export function applyProjectTodoEdit(
@@ -40,6 +62,7 @@ export function applyProjectTodoEdit(
   input: {
     readonly text: string;
     readonly project: EnvironmentProject | null;
+    readonly status: ProjectTodoStatus;
     readonly updatedAt: number;
   },
 ): ProjectTodo | null {
@@ -56,6 +79,7 @@ export function applyProjectTodoEdit(
         }
       : {}),
     text,
+    status: input.status,
     updatedAt: input.updatedAt,
   };
 }

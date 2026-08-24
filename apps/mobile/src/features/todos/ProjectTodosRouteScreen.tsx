@@ -16,7 +16,14 @@ import { useProjects } from "../../state/entities";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { useThemeColor } from "../../lib/useThemeColor";
 import { useProjectTodos } from "./ProjectTodoProvider";
-import { projectTodoScopeKey, projectTodosForScope, type ProjectTodo } from "./project-todos";
+import {
+  PROJECT_TODO_STATUSES,
+  projectTodoScopeKey,
+  projectTodoStatusLabel,
+  projectTodosForScope,
+  type ProjectTodo,
+  type ProjectTodoStatus,
+} from "./project-todos";
 
 type ProjectTodosRouteProps = StaticScreenProps<{
   readonly environmentId?: string;
@@ -35,6 +42,7 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
   const dangerColor = useThemeColor("--color-danger-foreground");
   const primaryForegroundColor = useThemeColor("--color-primary-foreground");
   const [draft, setDraft] = useState("");
+  const [draftStatus, setDraftStatus] = useState<ProjectTodoStatus>("todo");
   const [showProjects, setShowProjects] = useState(false);
 
   const routeEnvironmentId = props.route.params?.environmentId ?? null;
@@ -95,13 +103,15 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
     () => (routeScope ? projectTodosForScope(todoStore.todos, routeScope) : todoStore.todos),
     [routeScope, todoStore.todos],
   );
-  const activeTodos = visibleTodos.filter((todo) => !todo.completed);
-  const completedTodos = visibleTodos.filter((todo) => todo.completed);
+  const todoItems = visibleTodos.filter((todo) => todo.status === "todo");
+  const inProgressItems = visibleTodos.filter((todo) => todo.status === "in-progress");
+  const completedItems = visibleTodos.filter((todo) => todo.status === "completed");
 
   const submit = async () => {
     if (!selectedProject || !draft.trim()) return;
-    if (await todoStore.addTodo(draft, selectedProject)) {
+    if (await todoStore.addTodo(draft, selectedProject, draftStatus)) {
       setDraft("");
+      setDraftStatus("todo");
     }
   };
 
@@ -136,6 +146,12 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
             }
             returnKeyType="done"
             value={draft}
+          />
+
+          <TodoStatusPicker
+            accessibilityLabel="New task status"
+            value={draftStatus}
+            onChange={setDraftStatus}
           />
 
           <View className="flex-row items-center gap-3">
@@ -235,20 +251,30 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
           />
         ) : (
           <View className="gap-6">
-            {activeTodos.length > 0 ? (
+            {todoItems.length > 0 ? (
               <TodoSection
-                title="Open"
-                todos={activeTodos}
+                title="To do"
+                todos={todoItems}
                 projects={projects}
                 onDelete={todoStore.deleteTodo}
                 onToggle={todoStore.toggleTodo}
                 onUpdate={todoStore.updateTodo}
               />
             ) : null}
-            {completedTodos.length > 0 ? (
+            {inProgressItems.length > 0 ? (
+              <TodoSection
+                title="In progress"
+                todos={inProgressItems}
+                projects={projects}
+                onDelete={todoStore.deleteTodo}
+                onToggle={todoStore.toggleTodo}
+                onUpdate={todoStore.updateTodo}
+              />
+            ) : null}
+            {completedItems.length > 0 ? (
               <TodoSection
                 title="Completed"
-                todos={completedTodos}
+                todos={completedItems}
                 projects={projects}
                 onDelete={todoStore.deleteTodo}
                 onToggle={todoStore.toggleTodo}
@@ -258,6 +284,71 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
           </View>
         )}
       </ScrollView>
+    </View>
+  );
+}
+
+function TodoStatusPicker(props: {
+  readonly accessibilityLabel: string;
+  readonly value: ProjectTodoStatus;
+  readonly onChange: (status: ProjectTodoStatus) => void;
+}) {
+  return (
+    <View accessibilityLabel={props.accessibilityLabel} className="flex-row gap-2">
+      {PROJECT_TODO_STATUSES.map((status) => {
+        const selected = props.value === status;
+        return (
+          <Pressable
+            key={status}
+            accessibilityLabel={projectTodoStatusLabel(status)}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: selected }}
+            onPress={() => props.onChange(status)}
+            className={
+              selected
+                ? "min-h-[38px] flex-1 items-center justify-center rounded-xl bg-primary px-1 py-2"
+                : "min-h-[38px] flex-1 items-center justify-center rounded-xl bg-subtle px-1 py-2"
+            }
+          >
+            <Text
+              className={
+                selected
+                  ? "text-2xs font-t3-bold text-primary-foreground"
+                  : "text-2xs font-t3-bold text-foreground-muted"
+              }
+              numberOfLines={1}
+            >
+              {projectTodoStatusLabel(status)}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function TodoStatusBadge(props: { readonly status: ProjectTodoStatus }) {
+  return (
+    <View
+      className={
+        props.status === "completed"
+          ? "rounded-full bg-emerald-500/10 px-2 py-0.5"
+          : props.status === "in-progress"
+            ? "rounded-full bg-amber-500/10 px-2 py-0.5"
+            : "rounded-full bg-subtle px-2 py-0.5"
+      }
+    >
+      <Text
+        className={
+          props.status === "completed"
+            ? "text-3xs font-t3-bold text-emerald-700 dark:text-emerald-300"
+            : props.status === "in-progress"
+              ? "text-3xs font-t3-bold text-amber-700 dark:text-amber-300"
+              : "text-3xs font-t3-bold text-foreground-muted"
+        }
+      >
+        {projectTodoStatusLabel(props.status)}
+      </Text>
     </View>
   );
 }
@@ -301,6 +392,7 @@ function TodoSection(props: {
     todo: ProjectTodo,
     text: string,
     project: EnvironmentProject | null,
+    status: ProjectTodoStatus,
   ) => Promise<boolean>;
 }) {
   return (
@@ -340,6 +432,7 @@ function TodoRow(props: {
     todo: ProjectTodo,
     text: string,
     project: EnvironmentProject | null,
+    status: ProjectTodoStatus,
   ) => Promise<boolean>;
 }) {
   const iconColor = useThemeColor("--color-icon");
@@ -347,11 +440,12 @@ function TodoRow(props: {
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(props.todo.text);
   const [editProjectKey, setEditProjectKey] = useState(() => projectTodoScopeKey(props.todo));
+  const [editStatus, setEditStatus] = useState<ProjectTodoStatus>(props.todo.status);
   const [showEditProjects, setShowEditProjects] = useState(false);
   const editProject =
     props.projects.find((project) => projectTodoScopeKey(project) === editProjectKey) ?? null;
   const saveEdit = async () => {
-    if (await props.onUpdate(props.todo, editDraft, editProject)) {
+    if (await props.onUpdate(props.todo, editDraft, editProject, editStatus)) {
       setShowEditProjects(false);
       setIsEditing(false);
     }
@@ -368,17 +462,25 @@ function TodoRow(props: {
       className={`flex-row items-start gap-3 p-4 ${props.first ? "" : "border-t border-border"}`}
     >
       <Pressable
-        accessibilityLabel={props.todo.completed ? "Mark task open" : "Mark task complete"}
+        accessibilityLabel={
+          props.todo.status === "completed" ? "Mark task to do" : "Mark task completed"
+        }
         accessibilityRole="checkbox"
-        accessibilityState={{ checked: props.todo.completed }}
+        accessibilityState={{ checked: props.todo.status === "completed" }}
         hitSlop={8}
         onPress={() => void props.onToggle(props.todo)}
         className="pt-0.5"
       >
         <SymbolView
-          name={props.todo.completed ? "checkmark.circle" : "circle"}
+          name={
+            props.todo.status === "completed"
+              ? "checkmark.circle"
+              : props.todo.status === "in-progress"
+                ? "clock"
+                : "circle"
+          }
           size={22}
-          tintColor={props.todo.completed ? iconColor : mutedColor}
+          tintColor={props.todo.status === "completed" ? iconColor : mutedColor}
           type="monochrome"
         />
       </Pressable>
@@ -396,7 +498,7 @@ function TodoRow(props: {
         ) : (
           <Text
             className={
-              props.todo.completed
+              props.todo.status === "completed"
                 ? "text-base leading-normal text-foreground-muted line-through"
                 : "text-base leading-normal"
             }
@@ -441,11 +543,19 @@ function TodoRow(props: {
                 ))}
               </View>
             ) : null}
+            <TodoStatusPicker
+              accessibilityLabel="Edit task status"
+              value={editStatus}
+              onChange={setEditStatus}
+            />
           </>
         ) : (
-          <Text className="text-xs text-foreground-muted" numberOfLines={1}>
-            {props.projectTitle}
-          </Text>
+          <View className="flex-row items-center gap-2">
+            <TodoStatusBadge status={props.todo.status} />
+            <Text className="min-w-0 flex-1 text-xs text-foreground-muted" numberOfLines={1}>
+              {props.projectTitle}
+            </Text>
+          </View>
         )}
       </View>
       {isEditing ? (
@@ -457,6 +567,7 @@ function TodoRow(props: {
             onPress={() => {
               setEditDraft(props.todo.text);
               setEditProjectKey(projectTodoScopeKey(props.todo));
+              setEditStatus(props.todo.status);
               setShowEditProjects(false);
               setIsEditing(false);
             }}
@@ -483,6 +594,7 @@ function TodoRow(props: {
           onPress={() => {
             setEditDraft(props.todo.text);
             setEditProjectKey(projectTodoScopeKey(props.todo));
+            setEditStatus(props.todo.status);
             setShowEditProjects(false);
             setIsEditing(true);
           }}

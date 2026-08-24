@@ -6,6 +6,15 @@ import { EnvironmentId, ProjectId } from "@t3tools/contracts";
 const openDatabaseAsync = vi.hoisted(() => vi.fn());
 
 vi.mock("expo-sqlite", () => ({ openDatabaseAsync }));
+vi.mock("expo-file-system", () => ({
+  Directory: class Directory {
+    readonly exists = false;
+  },
+  File: class File {
+    readonly uri = "";
+  },
+  Paths: { document: "/documents" },
+}));
 
 import { decodeLegacyCacheRecord, make } from "./mobile-database";
 
@@ -78,7 +87,7 @@ describe("mobile database legacy cache migration", () => {
           changes: 1,
           lastInsertRowId: 0,
         }));
-        const getFirstAsync = vi.fn(async () => ({ user_version: 2 }));
+        const getFirstAsync = vi.fn(async () => ({ user_version: 3 }));
         const getAllAsync = vi.fn(async () => [
           {
             id: "todo-1",
@@ -86,7 +95,27 @@ describe("mobile database legacy cache migration", () => {
             projectId: "project-1",
             projectTitle: "T3 Code",
             text: "Check the mobile header",
-            completed: 0,
+            statusCode: 2,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          {
+            id: "todo-completed",
+            environmentId: "environment-1",
+            projectId: "project-1",
+            projectTitle: "T3 Code",
+            text: "Already completed",
+            statusCode: 1,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          {
+            id: "todo-open",
+            environmentId: "environment-1",
+            projectId: "project-1",
+            projectTitle: "T3 Code",
+            text: "Still open",
+            statusCode: 0,
             createdAt: 1,
             updatedAt: 1,
           },
@@ -103,33 +132,64 @@ describe("mobile database legacy cache migration", () => {
         });
 
         const database = yield* make;
-        const [stored] = yield* database.loadProjectTodos;
+        const [stored, legacyCompleted, legacyOpen] = yield* database.loadProjectTodos;
         expect(stored).toEqual({
           id: "todo-1",
           environmentId: "environment-1",
           projectId: "project-1",
           projectTitle: "T3 Code",
           text: "Check the mobile header",
-          completed: false,
+          status: "in-progress",
           createdAt: 1,
           updatedAt: 1,
         });
+        expect(legacyCompleted?.status).toBe("completed");
+        expect(legacyOpen?.status).toBe("todo");
 
         yield* database.saveProjectTodo({
           ...stored!,
           environmentId: EnvironmentId.make("environment-1"),
           projectId: ProjectId.make("project-1"),
-          completed: true,
+          status: "completed",
           updatedAt: 2,
         });
         yield* database.removeProjectTodo("todo-1");
 
         expect(runAsync).toHaveBeenCalledTimes(2);
         expect(runAsync.mock.calls[0]?.[0]).toContain("INSERT INTO project_todos");
+        expect(runAsync.mock.calls[0]?.[6]).toBe(1);
         expect(runAsync.mock.calls[1]).toEqual([
           "DELETE FROM project_todos WHERE id = ?",
           "todo-1",
         ]);
+      }),
+    ),
+  );
+
+  it.effect("expands the legacy completion constraint for three task statuses", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const transactionExecAsync = vi.fn(
+          async (..._statements: ReadonlyArray<string>) => undefined,
+        );
+        const execAsync = vi.fn(async () => undefined);
+        const getFirstAsync = vi.fn(async () => ({ user_version: 2 }));
+        openDatabaseAsync.mockResolvedValueOnce({
+          execAsync,
+          runAsync: vi.fn(async () => ({ changes: 0, lastInsertRowId: 0 })),
+          getFirstAsync,
+          getAllAsync: vi.fn(async () => []),
+          closeAsync: vi.fn(async () => undefined),
+          withExclusiveTransactionAsync: async (
+            use: (transaction: { execAsync: typeof transactionExecAsync }) => Promise<void>,
+          ) => use({ execAsync: transactionExecAsync }),
+        });
+
+        yield* make;
+
+        expect(transactionExecAsync).toHaveBeenCalledTimes(2);
+        expect(transactionExecAsync.mock.calls[1]?.[0]).toContain("CHECK (completed IN (0, 1, 2))");
+        expect(execAsync).toHaveBeenCalledWith("PRAGMA user_version = 3;");
       }),
     ),
   );
