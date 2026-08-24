@@ -502,6 +502,13 @@ function ThreadRouteContent(
   const handleOpenConnectionEditor = useCallback(() => {
     void navigation.navigate("Connections");
   }, [navigation]);
+  const handleOpenTodos = useCallback(() => {
+    if (!selectedThread || !selectedThreadProject) return;
+    navigation.navigate("ProjectTodos", {
+      environmentId: String(selectedThread.environmentId),
+      projectId: String(selectedThreadProject.id),
+    });
+  }, [navigation, selectedThread, selectedThreadProject]);
   const handleStopThread = useCallback(() => {
     if (
       !selectedThread ||
@@ -654,6 +661,7 @@ function ThreadRouteContent(
     terminalSessions: terminalMenuSessions,
     showDirectFileControl: layout.usesSplitView,
     onOpenTerminal: handleOpenTerminal,
+    onOpenTodos: handleOpenTodos,
     onOpenNewTerminal: handleOpenNewTerminal,
     onRunProjectScript: handleRunProjectScript,
     onRenameThread: () => selectedThread && renameThread(selectedThread),
@@ -722,19 +730,16 @@ function ThreadRouteContent(
       });
     }
     return actions;
-  }, [
-    fileInspector.supported,
-    handleOpenFilesInspector,
-    handleOpenTerminal,
-    handleOpenGitInspector,
-    handleToggleInspector,
-    props.onReturnToThread,
-    selectedThreadCwd,
-    selectedThreadProject?.workspaceRoot,
-  ]);
+  }, [fileInspector.supported, handleToggleInspector, props.onReturnToThread, selectedThreadCwd]);
   const androidThreadMenuActions = useMemo(
     () => [
       { id: "rename", title: "Rename thread", image: "pencil" },
+      {
+        id: "todos",
+        title: "Tasks and notes",
+        image: "doc.text",
+        attributes: selectedThreadProject ? undefined : { disabled: true as const },
+      },
       {
         id: "files",
         title: "Files",
@@ -749,11 +754,12 @@ function ThreadRouteContent(
       },
       { id: "git", title: "Git", image: "point.topleft.down.curvedto.point.bottomright.up" },
     ],
-    [selectedThreadCwd, selectedThreadProject?.workspaceRoot],
+    [selectedThreadCwd, selectedThreadProject],
   );
   const handleAndroidThreadMenuAction = useCallback(
     (event: { nativeEvent: { event: string } }) => {
       if (event.nativeEvent.event === "rename" && selectedThread) renameThread(selectedThread);
+      if (event.nativeEvent.event === "todos") handleOpenTodos();
       if (event.nativeEvent.event === "files") handleOpenFilesInspector();
       if (event.nativeEvent.event === "terminal") handleOpenTerminal(null);
       if (event.nativeEvent.event === "git") handleOpenGitInspector();
@@ -761,6 +767,7 @@ function ThreadRouteContent(
     [
       handleOpenFilesInspector,
       handleOpenGitInspector,
+      handleOpenTodos,
       handleOpenTerminal,
       renameThread,
       selectedThread,

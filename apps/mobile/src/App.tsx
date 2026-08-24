@@ -15,6 +15,7 @@ import { TextInputDialogHost } from "./components/TextInputDialogHost";
 import { CloudAuthProvider } from "./features/cloud/CloudAuthProvider";
 import { prepareNativeShowcaseCapture } from "./features/showcase/nativeShowcaseScene";
 import { IncomingShareProvider } from "./features/sharing/IncomingShareProvider";
+import { ProjectTodoProvider } from "./features/todos/ProjectTodoProvider";
 import {
   AppearancePreferencesProvider,
   useAppearancePreferences,
@@ -129,7 +130,9 @@ function AppContent() {
             {/* Blur target for Android dropdown backdrops — see appBlurTarget.ts. */}
             <BlurTargetView ref={appBlurTargetRef} style={{ flex: 1 }}>
               <IncomingShareProvider>
-                <Navigation linking={appLinking} theme={navigationTheme} />
+                <ProjectTodoProvider>
+                  <Navigation linking={appLinking} theme={navigationTheme} />
+                </ProjectTodoProvider>
               </IncomingShareProvider>
               <ConfirmDialogHost />
               <TextInputDialogHost />

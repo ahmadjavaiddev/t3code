@@ -103,6 +103,7 @@ type ThreadGitControlsProps = ThreadGitMenuProps & {
   readonly showActionControls?: boolean;
   readonly showDirectFileControl?: boolean;
   readonly onOpenTerminal: (terminalId?: string | null) => void;
+  readonly onOpenTodos: () => void;
   readonly onOpenNewTerminal: () => void;
   readonly onRunProjectScript: (script: ProjectScript) => Promise<void>;
   readonly onRenameThread: () => void;
@@ -385,6 +386,12 @@ function useThreadGitHeaderActionItems(props: ThreadGitControlsProps): ThreadGit
               type: "action",
             },
             {
+              icon: { name: "list.bullet.clipboard", type: "sfSymbol" },
+              label: "Tasks and notes",
+              onPress: props.onOpenTodos,
+              type: "action",
+            },
+            {
               disabled: !props.canOpenFiles,
               icon: { name: "folder", type: "sfSymbol" },
               label: "Files",
@@ -422,6 +429,7 @@ function useThreadGitHeaderActionItems(props: ThreadGitControlsProps): ThreadGit
     props.gitStatus,
     props.onOpenNewTerminal,
     props.onOpenTerminal,
+    props.onOpenTodos,
     props.onRenameThread,
     props.onRunProjectScript,
     props.projectScripts,
@@ -465,6 +473,9 @@ export function ThreadGitControls(props: ThreadGitControlsProps) {
         >
           <NativeHeaderToolbar.MenuAction icon="pencil" onPress={props.onRenameThread}>
             <NativeHeaderToolbar.Label>Rename thread</NativeHeaderToolbar.Label>
+          </NativeHeaderToolbar.MenuAction>
+          <NativeHeaderToolbar.MenuAction icon="list.bullet.clipboard" onPress={props.onOpenTodos}>
+            <NativeHeaderToolbar.Label>Tasks and notes</NativeHeaderToolbar.Label>
           </NativeHeaderToolbar.MenuAction>
           {props.projectScripts.length > 0 ? (
             props.projectScripts.map((script) => (
