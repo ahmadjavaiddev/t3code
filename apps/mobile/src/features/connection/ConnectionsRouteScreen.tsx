@@ -10,6 +10,7 @@ import { AppText as Text } from "../../components/AppText";
 import { cn } from "../../lib/cn";
 import { useRemoteConnections } from "../../state/use-remote-environment-registry";
 import { ConnectionEnvironmentRow } from "./ConnectionEnvironmentRow";
+import { environmentDetailsRoute } from "./environmentDetailsNavigation";
 
 export function ConnectionsRouteScreen() {
   const {
@@ -69,15 +70,10 @@ export function ConnectionsRouteScreen() {
                   environment={environment}
                   expanded={false}
                   opensDetails
-                  onToggle={() =>
-                    navigation.navigate("SettingsSheet", {
-                      screen: "SettingsContent",
-                      params: {
-                        screen: "SettingsEnvironmentDetails",
-                        params: { environmentId: environment.environmentId },
-                      },
-                    })
-                  }
+                  onToggle={() => {
+                    const target = environmentDetailsRoute(environment.environmentId);
+                    navigation.navigate(target.name, target.params);
+                  }}
                   onReconnect={onReconnectEnvironment}
                   onRemove={onRemoveEnvironmentPress}
                   onUpdate={onUpdateEnvironment}

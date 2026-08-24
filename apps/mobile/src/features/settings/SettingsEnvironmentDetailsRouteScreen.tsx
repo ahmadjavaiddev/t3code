@@ -17,7 +17,30 @@ type SettingsEnvironmentDetailsRouteParams = {
 export function SettingsEnvironmentDetailsRouteScreen({
   route,
 }: StaticScreenProps<SettingsEnvironmentDetailsRouteParams>) {
-  const environmentId = EnvironmentId.make(route.params.environmentId);
+  return (
+    <EnvironmentDetailsRouteContent
+      environmentId={route.params.environmentId}
+      managementPairingRoute="SettingsEnvironmentNew"
+    />
+  );
+}
+
+export function ConnectionDetailsRouteScreen({
+  route,
+}: StaticScreenProps<SettingsEnvironmentDetailsRouteParams>) {
+  return (
+    <EnvironmentDetailsRouteContent
+      environmentId={route.params.environmentId}
+      managementPairingRoute="ConnectionsNew"
+    />
+  );
+}
+
+function EnvironmentDetailsRouteContent(props: {
+  readonly environmentId: string;
+  readonly managementPairingRoute: "ConnectionsNew" | "SettingsEnvironmentNew";
+}) {
+  const environmentId = EnvironmentId.make(props.environmentId);
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const {
@@ -56,7 +79,6 @@ export function SettingsEnvironmentDetailsRouteScreen({
               environment={environment}
               expanded
               detailsOnly
-              onToggle={() => navigation.goBack()}
               onReconnect={onReconnectEnvironment}
               onRemove={onRemoveEnvironmentPress}
               onUpdate={onUpdateEnvironment}
@@ -72,7 +94,11 @@ export function SettingsEnvironmentDetailsRouteScreen({
         {environment ? (
           <View className="gap-3">
             <Text className="px-1 text-lg font-t3-bold text-foreground">Client access</Text>
-            <ConnectionAccessContent embedded environmentId={environment.environmentId} />
+            <ConnectionAccessContent
+              embedded
+              environmentId={environment.environmentId}
+              managementPairingRoute={props.managementPairingRoute}
+            />
           </View>
         ) : null}
       </ScrollView>

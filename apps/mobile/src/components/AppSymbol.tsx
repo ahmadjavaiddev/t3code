@@ -133,6 +133,7 @@ const ANDROID_ICON_BY_SF_SYMBOL: Partial<Record<SFSymbol, Icon>> = {
   "line.3.horizontal.decrease.circle.fill": IconFilter,
   magnifyingglass: IconSearch,
   paintbrush: IconPalette,
+  pencil: IconEdit,
   "person.crop.circle": IconUserCircle,
   pin: IconPin,
   "pin.slash": IconPinnedOff,

@@ -26,7 +26,8 @@ function connectionStatusLabel(environment: ConnectedEnvironmentSummary): string
 export function ConnectionEnvironmentRow(props: {
   readonly environment: ConnectedEnvironmentSummary;
   readonly expanded: boolean;
-  readonly onToggle: () => void;
+  readonly onToggle?: () => void;
+  readonly onSaveSuccess?: () => void;
   readonly onReconnect: (environmentId: EnvironmentId) => void;
   readonly onManageAccess?: (environmentId: EnvironmentId) => void;
   readonly onRemove: (environmentId: EnvironmentId) => void;
@@ -55,7 +56,7 @@ export function ConnectionEnvironmentRow(props: {
       displayUrl: url.trim(),
     });
     if (AsyncResult.isSuccess(result)) {
-      props.onToggle();
+      props.onSaveSuccess?.();
       return;
     }
     const error = Cause.squash(result.cause);

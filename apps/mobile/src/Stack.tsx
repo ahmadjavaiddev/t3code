@@ -55,7 +55,10 @@ import { SettingsAppearanceRouteScreen } from "./features/settings/SettingsAppea
 import { SettingsClientStorageRouteScreen } from "./features/settings/SettingsClientStorageRouteScreen";
 import { SettingsAuthRouteScreen } from "./features/settings/SettingsAuthRouteScreen";
 import { SettingsEnvironmentsRouteScreen } from "./features/settings/SettingsEnvironmentsRouteScreen";
-import { SettingsEnvironmentDetailsRouteScreen } from "./features/settings/SettingsEnvironmentDetailsRouteScreen";
+import {
+  ConnectionDetailsRouteScreen,
+  SettingsEnvironmentDetailsRouteScreen,
+} from "./features/settings/SettingsEnvironmentDetailsRouteScreen";
 import { SettingsLegalRouteScreen } from "./features/settings/SettingsLegalRouteScreen";
 import { SettingsLegacyRouteScreen } from "./features/settings/SettingsLegacyRouteScreen";
 import { SettingsProjectGroupingRouteScreen } from "./features/settings/SettingsProjectGroupingRouteScreen";
@@ -347,6 +350,7 @@ const NewTaskSheetStack = createNativeStackNavigator({
 // influence the adaptive workspace layout: opening Settings over Home should
 // not flip the sidebar in or change the active thread.
 const WORKSPACE_OVERLAY_ROUTES = new Set([
+  "ConnectionDetails",
   "ConnectOnboarding",
   "Connections",
   "ConnectionsNew",
@@ -647,6 +651,17 @@ export const RootStack = createNativeStackNavigator({
               sheetAllowedDetents: [0.55, 0.7],
               sheetGrabberVisible: true,
             }),
+      },
+    }),
+    ConnectionDetails: createNativeStackScreen({
+      screen: ConnectionDetailsRouteScreen,
+      linking: "connections/:environmentId/details",
+      options: {
+        title: "Environment Details",
+        gestureEnabled: true,
+        ...(Platform.OS === "android"
+          ? { presentation: "card" as const, headerShown: false }
+          : GLASS_HEADER_OPTIONS),
       },
     }),
     ConnectionsNew: createNativeStackScreen({

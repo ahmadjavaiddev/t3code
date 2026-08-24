@@ -7,7 +7,7 @@ import {
   revokeOtherEnvironmentClientSessions,
 } from "@t3tools/client-runtime/state/auth";
 import * as Option from "effect/Option";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -54,12 +54,18 @@ type MutationKind = "create" | "revoke-others" | `pairing-link:${string}` | `cli
 export function ConnectionAccessRouteScreen({
   route,
 }: StaticScreenProps<ConnectionAccessRouteParams>) {
-  return <ConnectionAccessContent environmentId={route.params.environmentId} />;
+  return (
+    <ConnectionAccessContent
+      environmentId={route.params.environmentId}
+      managementPairingRoute="SettingsEnvironmentNew"
+    />
+  );
 }
 
 export function ConnectionAccessContent(props: {
   readonly environmentId: string;
   readonly embedded?: boolean;
+  readonly managementPairingRoute: "ConnectionsNew" | "SettingsEnvironmentNew";
 }) {
   const embedded = props.embedded ?? false;
   const environmentId = EnvironmentId.make(props.environmentId);
@@ -221,9 +227,9 @@ export function ConnectionAccessContent(props: {
 
   const openManagementPairing = useCallback(() => {
     navigation.dispatch(
-      StackActions.push("SettingsEnvironmentNew", { requestAccessManagement: "1" }),
+      StackActions.push(props.managementPairingRoute, { requestAccessManagement: "1" }),
     );
-  }, [navigation]);
+  }, [navigation, props.managementPairingRoute]);
 
   const sharePairingLink = useCallback(
     (credential: string) => {
@@ -244,16 +250,7 @@ export function ConnectionAccessContent(props: {
           options={{ title: connection?.environmentLabel ?? "Connection Access" }}
         />
       )}
-      <ScrollView
-        contentInsetAdjustmentBehavior={embedded ? "never" : "automatic"}
-        scrollEnabled={!embedded}
-        showsVerticalScrollIndicator={false}
-        className={embedded ? undefined : "flex-1"}
-        contentContainerClassName={embedded ? "gap-6" : "gap-6 px-5 pt-4"}
-        contentContainerStyle={
-          embedded ? undefined : { paddingBottom: Math.max(insets.bottom, 18) + 18 }
-        }
-      >
+      <ConnectionAccessContainer embedded={embedded} bottomInset={insets.bottom}>
         {connection === null ? (
           <ErrorBanner message="This environment is no longer saved on this device." />
         ) : session.isPending && session.data === null ? (
@@ -461,8 +458,30 @@ export function ConnectionAccessContent(props: {
             ) : null}
           </>
         )}
-      </ScrollView>
+      </ConnectionAccessContainer>
     </View>
+  );
+}
+
+function ConnectionAccessContainer(props: {
+  readonly embedded: boolean;
+  readonly bottomInset: number;
+  readonly children: ReactNode;
+}) {
+  if (props.embedded) {
+    return <View className="gap-6">{props.children}</View>;
+  }
+
+  return (
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      showsVerticalScrollIndicator={false}
+      className="flex-1"
+      contentContainerClassName="gap-6 px-5 pt-4"
+      contentContainerStyle={{ paddingBottom: Math.max(props.bottomInset, 18) + 18 }}
+    >
+      {props.children}
+    </ScrollView>
   );
 }
 
