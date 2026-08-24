@@ -5,7 +5,7 @@ import {
   revokeEnvironmentClientSession,
   revokeEnvironmentPairingLink,
   revokeOtherEnvironmentClientSessions,
-} from "@t3tools/client-runtime/state/auth-access";
+} from "@t3tools/client-runtime/state/auth";
 import * as Option from "effect/Option";
 import { useCallback, useMemo, useState } from "react";
 import {

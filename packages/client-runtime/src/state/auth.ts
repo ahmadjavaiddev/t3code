@@ -11,6 +11,13 @@ import type { EnvironmentRegistry } from "../connection/registry.ts";
 import { subscribe } from "../rpc/client.ts";
 import { createEnvironmentSubscriptionAtomFamily } from "./runtime.ts";
 
+export {
+  createEnvironmentPairingCredential,
+  revokeEnvironmentClientSession,
+  revokeEnvironmentPairingLink,
+  revokeOtherEnvironmentClientSessions,
+} from "./authAccessHttp.ts";
+
 export const EMPTY_AUTH_ACCESS_SNAPSHOT: AuthAccessSnapshot = {
   pairingLinks: [],
   clientSessions: [],
