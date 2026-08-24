@@ -15,6 +15,8 @@ import {
 import { projectScriptCwd, projectScriptRuntimeEnv } from "@t3tools/shared/projectScripts";
 import { Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { AsyncResult } from "effect/unstable/reactivity";
 import { useWorkspaceState } from "../../state/workspace";
 import { useEnvironmentQuery } from "../../state/query";
 import { dismissGitActionResult, useGitActionProgress } from "../../state/use-vcs-action-state";
@@ -63,6 +65,7 @@ import { useSelectedThreadRequests } from "../../state/use-selected-thread-reque
 import { useSelectedThreadWorktree } from "../../state/use-selected-thread-worktree";
 import { useThreadComposerState } from "../../state/use-thread-composer-state";
 import { threadEnvironment } from "../../state/threads";
+import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { projectThreadContentPresentation } from "./threadContentPresentation";
 import {
   useAdaptiveWorkspaceLayout,
@@ -75,6 +78,7 @@ import {
   ThreadInspectorContentStack,
   type ThreadInspectorMode,
 } from "./thread-inspector-content-stack";
+import { markThreadVisitedAt } from "./thread-completion";
 
 interface ThreadInspectorSelection {
   readonly routeThreadIdentity: string | null;
@@ -192,8 +196,24 @@ function ThreadRouteContent(
   const { onReconnectEnvironment } = useRemoteConnections();
   const { selectedThread, selectedThreadProject, selectedEnvironmentConnection } =
     useThreadSelection();
+  const preferencesResult = useAtomValue(mobilePreferencesAtom);
+  const savePreferences = useAtomSet(updateMobilePreferencesAtom);
+  const threadLastVisitedAtById = AsyncResult.isSuccess(preferencesResult)
+    ? (preferencesResult.value.threadLastVisitedAtById ?? {})
+    : {};
   const selectedThreadDetailState = props.selectedThreadDetailState;
   const selectedThreadDetail = Option.getOrNull(selectedThreadDetailState.data);
+  const selectedThreadCompletedAt = selectedThread?.latestTurn?.completedAt;
+  useEffect(() => {
+    if (!selectedThread || !selectedThreadCompletedAt) return;
+    const next = markThreadVisitedAt(
+      threadLastVisitedAtById,
+      scopedThreadKey(selectedThread.environmentId, selectedThread.id),
+      selectedThreadCompletedAt,
+    );
+    if (next === threadLastVisitedAtById) return;
+    savePreferences({ threadLastVisitedAtById: next });
+  }, [savePreferences, selectedThread, selectedThreadCompletedAt, threadLastVisitedAtById]);
   // "Load earlier turns" header state for windowed (paginated) thread loads.
   const loadEarlierTurns = useMemo(() => {
     if (selectedThread === null || !threadHasOlderTurns(selectedThreadDetailState)) {

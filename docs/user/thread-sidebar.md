@@ -7,6 +7,10 @@ one environment.
 Pinned threads still move to **Settled** when they become inactive. They also move when their pull
 request merges if **Auto-settle merged threads** is enabled.
 
+Thread status labels make active work easy to scan. **Working** marks a turn in progress, while
+**Done** marks a new completion you have not opened yet. Opening the thread clears **Done** on that
+device.
+
 On web and desktop, drag a pinned thread to change its position. On mobile, open the thread's menu
 and choose **Move up** or **Move down**. The order is stored by the server and appears on your
 other connected devices.

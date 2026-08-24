@@ -43,6 +43,8 @@ export interface Preferences {
   /** Device-local counterpart of desktop's `planModeEnabled` legacy flag. */
   readonly planModeEnabled?: boolean;
   readonly syncWorkingThreadMessages?: boolean;
+  /** Device-local unread completion cursor for mobile thread lists. */
+  readonly threadLastVisitedAtById?: Readonly<Record<string, string>>;
 }
 
 export class MobilePreferencesLoadError extends Schema.TaggedErrorClass<MobilePreferencesLoadError>()(
@@ -102,6 +104,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     legacyThreadListEnabled?: boolean;
     planModeEnabled?: boolean;
     syncWorkingThreadMessages?: boolean;
+    threadLastVisitedAtById?: Readonly<Record<string, string>>;
   } = {};
 
   if (typeof parsed.liveActivitiesEnabled === "boolean") {
@@ -174,6 +177,20 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   }
   if (typeof parsed.syncWorkingThreadMessages === "boolean") {
     preferences.syncWorkingThreadMessages = parsed.syncWorkingThreadMessages;
+  }
+  if (
+    parsed.threadLastVisitedAtById &&
+    typeof parsed.threadLastVisitedAtById === "object" &&
+    !Array.isArray(parsed.threadLastVisitedAtById)
+  ) {
+    preferences.threadLastVisitedAtById = Object.fromEntries(
+      Object.entries(parsed.threadLastVisitedAtById).filter(
+        (entry): entry is [string, string] =>
+          entry[0].length > 0 &&
+          typeof entry[1] === "string" &&
+          !Number.isNaN(Date.parse(entry[1])),
+      ),
+    );
   }
   return preferences;
 }

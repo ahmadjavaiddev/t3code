@@ -30,7 +30,7 @@ import { AppText as Text } from "../../components/AppText";
 import { EmptyState } from "../../components/EmptyState";
 import type { WorkspaceEnvironment, WorkspaceState } from "../../state/workspaceModel";
 import type { SavedRemoteConnection } from "../../lib/connection";
-import { scopedProjectKey } from "../../lib/scopedEntities";
+import { scopedProjectKey, scopedThreadKey } from "../../lib/scopedEntities";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { useThreadSearch } from "../../state/queries";
@@ -212,6 +212,9 @@ export function HomeScreen(props: HomeScreenProps) {
   const autoSettleOnMerge =
     !AsyncResult.isSuccess(preferencesResult) ||
     preferencesResult.value.autoSettleOnMerge !== false;
+  const threadLastVisitedAtById = AsyncResult.isSuccess(preferencesResult)
+    ? (preferencesResult.value.threadLastVisitedAtById ?? {})
+    : {};
   const savePreferences = useAtomSet(updateMobilePreferencesAtom);
   const openSwipeableRef = useRef<SwipeableMethods | null>(null);
   const listRef = useRef<LegendListRef | null>(null);
@@ -838,6 +841,7 @@ export function HomeScreen(props: HomeScreenProps) {
             }),
           )}
           searchQuery={props.searchQuery}
+          lastVisitedAt={threadLastVisitedAtById[scopedThreadKey(thread.environmentId, thread.id)]}
           onSelectThread={props.onSelectThread}
           onDeleteThread={handleDeleteThread}
           onArchiveThread={props.onArchiveThread}
@@ -896,6 +900,7 @@ export function HomeScreen(props: HomeScreenProps) {
       settlementEnvironmentIds,
       snoozeEnvironmentIds,
       threadListV2Items,
+      threadLastVisitedAtById,
       threadSearchMatchByKey,
       titleRegenerationEnvironmentIds,
       toggleSettledShelf,
@@ -919,6 +924,7 @@ export function HomeScreen(props: HomeScreenProps) {
       savedConnectionsById: props.savedConnectionsById,
       searchQuery: props.searchQuery,
       snoozePresetMinute: nowMinute,
+      threadLastVisitedAtById,
       threadSearchMatchByKey,
     }),
     [
@@ -928,6 +934,7 @@ export function HomeScreen(props: HomeScreenProps) {
       props.savedConnectionsById,
       serverConfigs,
       nowMinute,
+      threadLastVisitedAtById,
       threadSearchMatchByKey,
       v2ProjectTitleByProjectKey,
     ],
@@ -938,9 +945,16 @@ export function HomeScreen(props: HomeScreenProps) {
       projectCwdByKey,
       savedConnectionsById: props.savedConnectionsById,
       searchQuery: props.searchQuery,
+      threadLastVisitedAtById,
       threadSearchMatchByKey,
     }),
-    [projectCwdByKey, props.savedConnectionsById, props.searchQuery, threadSearchMatchByKey],
+    [
+      projectCwdByKey,
+      props.savedConnectionsById,
+      props.searchQuery,
+      threadLastVisitedAtById,
+      threadSearchMatchByKey,
+    ],
   );
 
   const renderItem = useCallback(
@@ -1000,6 +1014,9 @@ export function HomeScreen(props: HomeScreenProps) {
                 }),
               )}
               searchQuery={props.searchQuery}
+              lastVisitedAt={
+                threadLastVisitedAtById[scopedThreadKey(thread.environmentId, thread.id)]
+              }
               onArchiveThread={props.onArchiveThread}
               onDeleteThread={props.onDeleteThread}
               onRegenerateThreadTitle={handleRegenerateThreadTitle}
@@ -1036,6 +1053,7 @@ export function HomeScreen(props: HomeScreenProps) {
       props.onSelectThread,
       props.searchQuery,
       props.savedConnectionsById,
+      threadLastVisitedAtById,
       threadSearchMatchByKey,
       titleRegenerationEnvironmentIds,
       updateGroupDisplay,

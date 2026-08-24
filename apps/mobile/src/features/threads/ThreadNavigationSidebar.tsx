@@ -223,6 +223,9 @@ function ThreadNavigationSidebarPane(
   const autoSettleOnMerge =
     !AsyncResult.isSuccess(preferencesResult) ||
     preferencesResult.value.autoSettleOnMerge !== false;
+  const threadLastVisitedAtById = AsyncResult.isSuccess(preferencesResult)
+    ? (preferencesResult.value.threadLastVisitedAtById ?? {})
+    : {};
   const pendingTasks = usePendingNewTasks();
   const { openPendingTask, confirmDeletePendingTask } = usePendingTaskListActions();
   const environments = useMemo(
@@ -834,6 +837,7 @@ function ThreadNavigationSidebarPane(
       savedConnectionsById,
       serverConfigs,
       snoozePresetMinute: nowMinute,
+      threadLastVisitedAtById,
       threadSearchMatchByKey,
     }),
     [
@@ -844,6 +848,7 @@ function ThreadNavigationSidebarPane(
       savedConnectionsById,
       serverConfigs,
       nowMinute,
+      threadLastVisitedAtById,
       threadSearchMatchByKey,
     ],
   );
@@ -969,6 +974,9 @@ function ThreadNavigationSidebarPane(
                 }),
               )}
               searchQuery={props.searchQuery}
+              lastVisitedAt={
+                threadLastVisitedAtById[scopedThreadKey(thread.environmentId, thread.id)]
+              }
               pane="sidebar"
               selected={
                 scopedThreadKey(thread.environmentId, thread.id) === props.selectedThreadKey
@@ -1091,6 +1099,9 @@ function ThreadNavigationSidebarPane(
                 }),
               )}
               searchQuery={props.searchQuery}
+              lastVisitedAt={
+                threadLastVisitedAtById[scopedThreadKey(thread.environmentId, thread.id)]
+              }
               selected={
                 scopedThreadKey(thread.environmentId, thread.id) === props.selectedThreadKey
               }
@@ -1143,6 +1154,7 @@ function ThreadNavigationSidebarPane(
       props.width,
       savedConnectionsById,
       serverConfigs,
+      threadLastVisitedAtById,
       threadSearchMatchByKey,
       titleRegenerationEnvironmentIds,
       settleThread,
