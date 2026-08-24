@@ -51,6 +51,8 @@ export interface Preferences {
   readonly threadCompletionTrackingStartedAt?: string;
   /** Device-local unread completion cursor for mobile thread lists. */
   readonly threadLastVisitedAtById?: Readonly<Record<string, string>>;
+  /** Last project chosen on the device-local Tasks & notes screen. */
+  readonly projectTodosLastSelectedProjectKey?: string;
 }
 
 export class MobilePreferencesLoadError extends Schema.TaggedErrorClass<MobilePreferencesLoadError>()(
@@ -114,6 +116,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     threadListV2SnoozedShelfExpanded?: boolean;
     threadCompletionTrackingStartedAt?: string;
     threadLastVisitedAtById?: Readonly<Record<string, string>>;
+    projectTodosLastSelectedProjectKey?: string;
   } = {};
 
   if (typeof parsed.liveActivitiesEnabled === "boolean") {
@@ -212,6 +215,9 @@ function sanitizePreferences(parsed: Preferences): Preferences {
           !Number.isNaN(Date.parse(entry[1])),
       ),
     );
+  }
+  if (typeof parsed.projectTodosLastSelectedProjectKey === "string") {
+    preferences.projectTodosLastSelectedProjectKey = parsed.projectTodosLastSelectedProjectKey;
   }
   return preferences;
 }

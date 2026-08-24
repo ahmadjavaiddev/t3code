@@ -1,5 +1,7 @@
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import { EnvironmentId, ProjectId } from "@t3tools/contracts";
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { AsyncResult } from "effect/unstable/reactivity";
 import { useNavigation, type StaticScreenProps } from "@react-navigation/native";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, View } from "react-native";
@@ -11,6 +13,7 @@ import { AppText as Text, AppTextInput as TextInput } from "../../components/App
 import { EmptyState } from "../../components/EmptyState";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { useProjects } from "../../state/entities";
+import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { useThemeColor } from "../../lib/useThemeColor";
 import { useProjectTodos } from "./ProjectTodoProvider";
 import { projectTodoScopeKey, projectTodosForScope, type ProjectTodo } from "./project-todos";
@@ -25,6 +28,8 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
   const insets = useSafeAreaInsets();
   const projects = useProjects();
   const todoStore = useProjectTodos();
+  const preferencesResult = useAtomValue(mobilePreferencesAtom);
+  const savePreferences = useAtomSet(updateMobilePreferencesAtom);
   const iconColor = useThemeColor("--color-icon");
   const mutedColor = useThemeColor("--color-foreground-muted");
   const dangerColor = useThemeColor("--color-danger-foreground");
@@ -62,19 +67,25 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
   const [selectedProjectKey, setSelectedProjectKey] = useState<string | null>(() =>
     routeEnvironmentId && routeProjectId ? `${routeEnvironmentId}:${routeProjectId}` : null,
   );
+  const preferences = AsyncResult.isSuccess(preferencesResult) ? preferencesResult.value : null;
 
   useEffect(() => {
     if (routeScope) {
       setSelectedProjectKey(projectTodoScopeKey(routeScope));
       return;
     }
+    if (preferences === null) return;
+    const preferredProjectKey =
+      selectedProjectKey ?? preferences.projectTodosLastSelectedProjectKey ?? null;
     if (
-      selectedProjectKey === null ||
-      !sortedProjects.some((project) => projectTodoScopeKey(project) === selectedProjectKey)
+      preferredProjectKey === null ||
+      !sortedProjects.some((project) => projectTodoScopeKey(project) === preferredProjectKey)
     ) {
       setSelectedProjectKey(sortedProjects[0] ? projectTodoScopeKey(sortedProjects[0]) : null);
+    } else if (selectedProjectKey !== preferredProjectKey) {
+      setSelectedProjectKey(preferredProjectKey);
     }
-  }, [routeScope, selectedProjectKey, sortedProjects]);
+  }, [preferences, routeScope, selectedProjectKey, sortedProjects]);
 
   const selectedProject =
     scopedProject ??
@@ -176,6 +187,9 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
                     project={project}
                     onPress={() => {
                       setSelectedProjectKey(projectTodoScopeKey(project));
+                      savePreferences({
+                        projectTodosLastSelectedProjectKey: projectTodoScopeKey(project),
+                      });
                       setShowProjects(false);
                     }}
                   />
@@ -228,6 +242,7 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
                 projects={projects}
                 onDelete={todoStore.deleteTodo}
                 onToggle={todoStore.toggleTodo}
+                onUpdate={todoStore.updateTodo}
               />
             ) : null}
             {completedTodos.length > 0 ? (
@@ -237,6 +252,7 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
                 projects={projects}
                 onDelete={todoStore.deleteTodo}
                 onToggle={todoStore.toggleTodo}
+                onUpdate={todoStore.updateTodo}
               />
             ) : null}
           </View>
@@ -281,6 +297,7 @@ function TodoSection(props: {
   readonly projects: ReadonlyArray<EnvironmentProject>;
   readonly onToggle: (todo: ProjectTodo) => Promise<void>;
   readonly onDelete: (todo: ProjectTodo) => Promise<void>;
+  readonly onUpdate: (todo: ProjectTodo, text: string) => Promise<boolean>;
 }) {
   return (
     <View className="gap-2">
@@ -299,6 +316,7 @@ function TodoSection(props: {
             }
             onDelete={props.onDelete}
             onToggle={props.onToggle}
+            onUpdate={props.onUpdate}
           />
         ))}
       </View>
@@ -312,9 +330,15 @@ function TodoRow(props: {
   readonly first: boolean;
   readonly onToggle: (todo: ProjectTodo) => Promise<void>;
   readonly onDelete: (todo: ProjectTodo) => Promise<void>;
+  readonly onUpdate: (todo: ProjectTodo, text: string) => Promise<boolean>;
 }) {
   const iconColor = useThemeColor("--color-icon");
   const mutedColor = useThemeColor("--color-foreground-muted");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editDraft, setEditDraft] = useState(props.todo.text);
+  const saveEdit = async () => {
+    if (await props.onUpdate(props.todo, editDraft)) setIsEditing(false);
+  };
   const confirmDelete = () => {
     Alert.alert("Delete this task?", props.todo.text, [
       { text: "Cancel", style: "cancel" },
@@ -342,28 +366,81 @@ function TodoRow(props: {
         />
       </Pressable>
       <View className="min-w-0 flex-1 gap-1">
-        <Text
-          className={
-            props.todo.completed
-              ? "text-base leading-normal text-foreground-muted line-through"
-              : "text-base leading-normal"
-          }
-        >
-          {props.todo.text}
-        </Text>
+        {isEditing ? (
+          <TextInput
+            accessibilityLabel="Edit task or note"
+            autoFocus
+            blurOnSubmit={false}
+            onChangeText={setEditDraft}
+            onSubmitEditing={() => void saveEdit()}
+            returnKeyType="done"
+            value={editDraft}
+          />
+        ) : (
+          <Text
+            className={
+              props.todo.completed
+                ? "text-base leading-normal text-foreground-muted line-through"
+                : "text-base leading-normal"
+            }
+          >
+            {props.todo.text}
+          </Text>
+        )}
         <Text className="text-xs text-foreground-muted" numberOfLines={1}>
           {props.projectTitle}
         </Text>
       </View>
-      <Pressable
-        accessibilityLabel="Delete task"
-        accessibilityRole="button"
-        hitSlop={8}
-        onPress={confirmDelete}
-        className="p-1"
-      >
-        <SymbolView name="trash" size={18} tintColor={mutedColor} type="monochrome" />
-      </Pressable>
+      {isEditing ? (
+        <>
+          <Pressable
+            accessibilityLabel="Cancel editing task"
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => {
+              setEditDraft(props.todo.text);
+              setIsEditing(false);
+            }}
+            className="p-1"
+          >
+            <SymbolView name="xmark" size={18} tintColor={mutedColor} type="monochrome" />
+          </Pressable>
+          <Pressable
+            accessibilityLabel="Save edited task"
+            accessibilityRole="button"
+            disabled={!editDraft.trim()}
+            hitSlop={8}
+            onPress={() => void saveEdit()}
+            className="p-1 disabled:opacity-40"
+          >
+            <SymbolView name="checkmark" size={18} tintColor={iconColor} type="monochrome" />
+          </Pressable>
+        </>
+      ) : (
+        <Pressable
+          accessibilityLabel="Edit task"
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={() => {
+            setEditDraft(props.todo.text);
+            setIsEditing(true);
+          }}
+          className="p-1"
+        >
+          <SymbolView name="pencil" size={18} tintColor={mutedColor} type="monochrome" />
+        </Pressable>
+      )}
+      {isEditing ? null : (
+        <Pressable
+          accessibilityLabel="Delete task"
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={confirmDelete}
+          className="p-1"
+        >
+          <SymbolView name="trash" size={18} tintColor={mutedColor} type="monochrome" />
+        </Pressable>
+      )}
     </View>
   );
 }
