@@ -43,6 +43,8 @@ export interface Preferences {
   /** Device-local counterpart of desktop's `planModeEnabled` legacy flag. */
   readonly planModeEnabled?: boolean;
   readonly syncWorkingThreadMessages?: boolean;
+  /** First app launch that can track newly completed threads without flagging old history. */
+  readonly threadCompletionTrackingStartedAt?: string;
   /** Device-local unread completion cursor for mobile thread lists. */
   readonly threadLastVisitedAtById?: Readonly<Record<string, string>>;
 }
@@ -104,6 +106,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     legacyThreadListEnabled?: boolean;
     planModeEnabled?: boolean;
     syncWorkingThreadMessages?: boolean;
+    threadCompletionTrackingStartedAt?: string;
     threadLastVisitedAtById?: Readonly<Record<string, string>>;
   } = {};
 
@@ -177,6 +180,12 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   }
   if (typeof parsed.syncWorkingThreadMessages === "boolean") {
     preferences.syncWorkingThreadMessages = parsed.syncWorkingThreadMessages;
+  }
+  if (
+    typeof parsed.threadCompletionTrackingStartedAt === "string" &&
+    !Number.isNaN(Date.parse(parsed.threadCompletionTrackingStartedAt))
+  ) {
+    preferences.threadCompletionTrackingStartedAt = parsed.threadCompletionTrackingStartedAt;
   }
   if (
     parsed.threadLastVisitedAtById &&

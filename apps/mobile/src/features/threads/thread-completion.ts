@@ -1,5 +1,13 @@
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 
+export function resolveThreadCompletionVisitedAt(
+  visitedAtByThreadKey: Readonly<Record<string, string>>,
+  threadKey: string,
+  trackingStartedAt: string | undefined,
+): string | undefined {
+  return visitedAtByThreadKey[threadKey] ?? trackingStartedAt;
+}
+
 /**
  * A completion is notable only after this device has visited an earlier
  * completion. Missing visit state therefore keeps historical threads quiet

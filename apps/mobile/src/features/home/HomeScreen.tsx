@@ -56,6 +56,7 @@ import {
   THREAD_LIST_V2_SETTLED_PAGE_COUNT,
   type ThreadListV2ListItem,
 } from "../threads/threadListV2";
+import { resolveThreadCompletionVisitedAt } from "../threads/thread-completion";
 import type { HomeListFilterMenuEnvironment } from "./home-list-filter-menu";
 import {
   buildHomeListLayout,
@@ -215,6 +216,9 @@ export function HomeScreen(props: HomeScreenProps) {
   const threadLastVisitedAtById = AsyncResult.isSuccess(preferencesResult)
     ? (preferencesResult.value.threadLastVisitedAtById ?? {})
     : {};
+  const threadCompletionTrackingStartedAt = AsyncResult.isSuccess(preferencesResult)
+    ? preferencesResult.value.threadCompletionTrackingStartedAt
+    : undefined;
   const savePreferences = useAtomSet(updateMobilePreferencesAtom);
   const openSwipeableRef = useRef<SwipeableMethods | null>(null);
   const listRef = useRef<LegendListRef | null>(null);
@@ -841,7 +845,11 @@ export function HomeScreen(props: HomeScreenProps) {
             }),
           )}
           searchQuery={props.searchQuery}
-          lastVisitedAt={threadLastVisitedAtById[scopedThreadKey(thread.environmentId, thread.id)]}
+          lastVisitedAt={resolveThreadCompletionVisitedAt(
+            threadLastVisitedAtById,
+            scopedThreadKey(thread.environmentId, thread.id),
+            threadCompletionTrackingStartedAt,
+          )}
           onSelectThread={props.onSelectThread}
           onDeleteThread={handleDeleteThread}
           onArchiveThread={props.onArchiveThread}
@@ -900,6 +908,7 @@ export function HomeScreen(props: HomeScreenProps) {
       settlementEnvironmentIds,
       snoozeEnvironmentIds,
       threadListV2Items,
+      threadCompletionTrackingStartedAt,
       threadLastVisitedAtById,
       threadSearchMatchByKey,
       titleRegenerationEnvironmentIds,
@@ -924,6 +933,7 @@ export function HomeScreen(props: HomeScreenProps) {
       savedConnectionsById: props.savedConnectionsById,
       searchQuery: props.searchQuery,
       snoozePresetMinute: nowMinute,
+      threadCompletionTrackingStartedAt,
       threadLastVisitedAtById,
       threadSearchMatchByKey,
     }),
@@ -934,6 +944,7 @@ export function HomeScreen(props: HomeScreenProps) {
       props.savedConnectionsById,
       serverConfigs,
       nowMinute,
+      threadCompletionTrackingStartedAt,
       threadLastVisitedAtById,
       threadSearchMatchByKey,
       v2ProjectTitleByProjectKey,
@@ -945,6 +956,7 @@ export function HomeScreen(props: HomeScreenProps) {
       projectCwdByKey,
       savedConnectionsById: props.savedConnectionsById,
       searchQuery: props.searchQuery,
+      threadCompletionTrackingStartedAt,
       threadLastVisitedAtById,
       threadSearchMatchByKey,
     }),
@@ -952,6 +964,7 @@ export function HomeScreen(props: HomeScreenProps) {
       projectCwdByKey,
       props.savedConnectionsById,
       props.searchQuery,
+      threadCompletionTrackingStartedAt,
       threadLastVisitedAtById,
       threadSearchMatchByKey,
     ],
@@ -1014,9 +1027,11 @@ export function HomeScreen(props: HomeScreenProps) {
                 }),
               )}
               searchQuery={props.searchQuery}
-              lastVisitedAt={
-                threadLastVisitedAtById[scopedThreadKey(thread.environmentId, thread.id)]
-              }
+              lastVisitedAt={resolveThreadCompletionVisitedAt(
+                threadLastVisitedAtById,
+                scopedThreadKey(thread.environmentId, thread.id),
+                threadCompletionTrackingStartedAt,
+              )}
               onArchiveThread={props.onArchiveThread}
               onDeleteThread={props.onDeleteThread}
               onRegenerateThreadTitle={handleRegenerateThreadTitle}
@@ -1053,6 +1068,7 @@ export function HomeScreen(props: HomeScreenProps) {
       props.onSelectThread,
       props.searchQuery,
       props.savedConnectionsById,
+      threadCompletionTrackingStartedAt,
       threadLastVisitedAtById,
       threadSearchMatchByKey,
       titleRegenerationEnvironmentIds,
