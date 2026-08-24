@@ -1,8 +1,6 @@
 import { NativeHeaderToolbar } from "../../native/StackHeader";
 import { useNavigation } from "@react-navigation/native";
 import { SymbolView } from "../../components/AppSymbol";
-import type { EnvironmentId } from "@t3tools/contracts";
-import { useCallback, useState } from "react";
 import { Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColor } from "../../lib/useThemeColor";
@@ -23,13 +21,8 @@ export function ConnectionsRouteScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const hasEnvironments = connectedEnvironments.length > 0;
-  const [expandedId, setExpandedId] = useState<EnvironmentId | null>(null);
 
   const accentColor = useThemeColor("--color-icon-muted");
-
-  const handleToggle = useCallback((environmentId: EnvironmentId) => {
-    setExpandedId((prev) => (prev === environmentId ? null : environmentId));
-  }, []);
 
   return (
     <View collapsable={false} className="flex-1 bg-sheet">
@@ -74,18 +67,18 @@ export function ConnectionsRouteScreen() {
               >
                 <ConnectionEnvironmentRow
                   environment={environment}
-                  expanded={expandedId === environment.environmentId}
-                  onToggle={() => handleToggle(environment.environmentId)}
-                  onReconnect={onReconnectEnvironment}
-                  onManageAccess={(environmentId) =>
+                  expanded={false}
+                  opensDetails
+                  onToggle={() =>
                     navigation.navigate("SettingsSheet", {
                       screen: "SettingsContent",
                       params: {
-                        screen: "SettingsEnvironmentAccess",
-                        params: { environmentId },
+                        screen: "SettingsEnvironmentDetails",
+                        params: { environmentId: environment.environmentId },
                       },
                     })
                   }
+                  onReconnect={onReconnectEnvironment}
                   onRemove={onRemoveEnvironmentPress}
                   onUpdate={onUpdateEnvironment}
                 />
