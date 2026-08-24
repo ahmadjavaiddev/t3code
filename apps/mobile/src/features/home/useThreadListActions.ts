@@ -6,6 +6,7 @@ import { useCallback, useRef } from "react";
 import { Alert } from "react-native";
 
 import { showConfirmDialog } from "../../components/ConfirmDialogHost";
+import { showTextInputDialog } from "../../components/TextInputDialogHost";
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import { refreshArchivedThreadsForEnvironment } from "../archive/useArchivedThreadSnapshots";
 import {
@@ -237,6 +238,7 @@ export function useThreadListActions(): {
     direction: "up" | "down",
   ) => Promise<boolean>;
   readonly regenerateThreadTitle: (thread: EnvironmentThreadShell) => Promise<boolean>;
+  readonly renameThread: (thread: EnvironmentThreadShell) => void;
 } {
   const executeAction = useThreadActionExecutor();
   const snoozeMutation = useAtomCommand(threadEnvironment.snooze, { reportFailure: false });
@@ -460,6 +462,37 @@ export function useThreadListActions(): {
     },
     [updateThreadMetadata],
   );
+  const renameThread = useCallback(
+    (thread: EnvironmentThreadShell) => {
+      showTextInputDialog({
+        title: "Rename thread",
+        initialValue: thread.title,
+        confirmText: "Rename",
+        onConfirm: (title) => {
+          const trimmedTitle = title.trim();
+          if (trimmedTitle.length === 0) {
+            Alert.alert("Could not rename thread", "Thread title cannot be empty.");
+            return;
+          }
+          if (trimmedTitle === thread.title) return;
+          void updateThreadMetadata({
+            environmentId: thread.environmentId,
+            input: { threadId: thread.id, title: trimmedTitle },
+          }).then((result) => {
+            if (result._tag !== "Failure") return;
+            const error = Cause.squash(result.cause);
+            Alert.alert(
+              "Could not rename thread",
+              error instanceof Error && error.message.trim().length > 0
+                ? error.message
+                : "The thread title could not be changed.",
+            );
+          });
+        },
+      });
+    },
+    [updateThreadMetadata],
+  );
 
   // Move up / Move down for the pinned block. Computed against the CANONICAL
   // keyed pinned order (not the rendered list), so the move is valid even
@@ -553,6 +586,7 @@ export function useThreadListActions(): {
     unpinThread,
     movePinnedThread,
     regenerateThreadTitle,
+    renameThread,
   };
 }
 
