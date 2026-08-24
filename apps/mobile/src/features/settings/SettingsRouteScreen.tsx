@@ -538,10 +538,19 @@ function GeneralSettingsSection() {
   const autoSettleOnMerge =
     !AsyncResult.isSuccess(preferencesResult) ||
     preferencesResult.value.autoSettleOnMerge !== false;
+  const syncWorkingThreadMessages =
+    AsyncResult.isSuccess(preferencesResult) &&
+    preferencesResult.value.syncWorkingThreadMessages === true;
 
   return (
     <SettingsSection title="General">
       <SettingsRow icon="folder" label="Project Grouping" target="SettingsProjectGrouping" />
+      <SettingsSwitchRow
+        icon="arrow.triangle.2.circlepath"
+        label="Sync Working Threads"
+        value={syncWorkingThreadMessages}
+        onValueChange={(value) => savePreferences({ syncWorkingThreadMessages: value })}
+      />
       <SettingsSwitchRow
         icon="arrow.triangle.branch"
         label="Auto-settle merged threads"

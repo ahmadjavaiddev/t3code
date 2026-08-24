@@ -15,6 +15,12 @@ If reordering is unavailable for one environment, update the T3 Code server runn
 environment. Older servers can still pin and unpin threads, but do not understand synced ordering;
 their pinned threads keep the default newest-first order below the ones you have arranged.
 
+## Faster thread opening
+
+Turn on **Sync working threads** in **Settings → General** to keep messages from threads with live
+foreground or background work up to date while that client is open. Threads without live work are
+not synced in the background. The setting is local to each web, desktop, or mobile client.
+
 ## Environment artwork
 
 Dev and Nightly environments can identify themselves with artwork at the top of the sidebar and in
