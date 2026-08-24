@@ -36,7 +36,6 @@ export function ConnectionEnvironmentRow(props: {
     updates: { readonly label: string; readonly displayUrl: string },
   ) => Promise<AtomCommandResult<unknown, unknown>>;
   readonly detailsOnly?: boolean;
-  readonly opensDetails?: boolean;
 }) {
   const [label, setLabel] = useState(props.environment.environmentLabel);
   const [url, setUrl] = useState(props.environment.displayUrl);
@@ -70,7 +69,6 @@ export function ConnectionEnvironmentRow(props: {
     <Animated.View layout={LinearTransition.duration(250)} className="bg-card">
       {props.detailsOnly ? null : (
         <Pressable
-          accessibilityHint={props.opensDetails ? "Opens environment details" : undefined}
           accessibilityRole="button"
           className="flex-row items-center gap-3 px-4 py-3.5 active:opacity-70"
           onPress={props.onToggle}
@@ -124,12 +122,12 @@ export function ConnectionEnvironmentRow(props: {
           </View>
 
           <SymbolView
-            name={props.opensDetails ? "chevron.right" : "chevron.down"}
+            name="chevron.down"
             size={12}
             tintColor={mutedColor}
             type="monochrome"
             style={{
-              transform: [{ rotate: !props.opensDetails && props.expanded ? "180deg" : "0deg" }],
+              transform: [{ rotate: props.expanded ? "180deg" : "0deg" }],
             }}
           />
         </Pressable>

@@ -62,6 +62,17 @@ export function ConnectionAccessRouteScreen({
   );
 }
 
+export function RootConnectionAccessRouteScreen({
+  route,
+}: StaticScreenProps<ConnectionAccessRouteParams>) {
+  return (
+    <ConnectionAccessContent
+      environmentId={route.params.environmentId}
+      managementPairingRoute="ConnectionsNew"
+    />
+  );
+}
+
 export function ConnectionAccessContent(props: {
   readonly environmentId: string;
   readonly embedded?: boolean;

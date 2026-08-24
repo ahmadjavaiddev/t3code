@@ -1,6 +1,8 @@
 import { NativeHeaderToolbar } from "../../native/StackHeader";
-import { useNavigation } from "@react-navigation/native";
+import { StackActions, useNavigation } from "@react-navigation/native";
 import { SymbolView } from "../../components/AppSymbol";
+import type { EnvironmentId } from "@t3tools/contracts";
+import { useCallback, useState } from "react";
 import { Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColor } from "../../lib/useThemeColor";
@@ -10,7 +12,7 @@ import { AppText as Text } from "../../components/AppText";
 import { cn } from "../../lib/cn";
 import { useRemoteConnections } from "../../state/use-remote-environment-registry";
 import { ConnectionEnvironmentRow } from "./ConnectionEnvironmentRow";
-import { environmentDetailsRoute } from "./environmentDetailsNavigation";
+import { toggleExpandedEnvironment } from "./environmentExpansion";
 
 export function ConnectionsRouteScreen() {
   const {
@@ -22,8 +24,12 @@ export function ConnectionsRouteScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const hasEnvironments = connectedEnvironments.length > 0;
+  const [expandedId, setExpandedId] = useState<EnvironmentId | null>(null);
 
   const accentColor = useThemeColor("--color-icon-muted");
+  const handleToggle = useCallback((environmentId: EnvironmentId) => {
+    setExpandedId((current) => toggleExpandedEnvironment(current, environmentId));
+  }, []);
 
   return (
     <View collapsable={false} className="flex-1 bg-sheet">
@@ -68,12 +74,11 @@ export function ConnectionsRouteScreen() {
               >
                 <ConnectionEnvironmentRow
                   environment={environment}
-                  expanded={false}
-                  opensDetails
-                  onToggle={() => {
-                    const target = environmentDetailsRoute(environment.environmentId);
-                    navigation.navigate(target.name, target.params);
-                  }}
+                  expanded={expandedId === environment.environmentId}
+                  onToggle={() => handleToggle(environment.environmentId)}
+                  onManageAccess={(environmentId) =>
+                    navigation.dispatch(StackActions.push("ConnectionAccess", { environmentId }))
+                  }
                   onReconnect={onReconnectEnvironment}
                   onRemove={onRemoveEnvironmentPress}
                   onUpdate={onUpdateEnvironment}

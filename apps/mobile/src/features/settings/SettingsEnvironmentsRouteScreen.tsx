@@ -2,7 +2,7 @@ import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/Stac
 import { StackActions, useNavigation } from "@react-navigation/native";
 import { SymbolView } from "../../components/AppSymbol";
 import type { EnvironmentId } from "@t3tools/contracts";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -10,6 +10,7 @@ import { AppText as Text } from "../../components/AppText";
 import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { CloudEnvironmentRows } from "../connection/CloudEnvironmentRows";
 import { ConnectionEnvironmentRow } from "../connection/ConnectionEnvironmentRow";
+import { toggleExpandedEnvironment } from "../connection/environmentExpansion";
 import { splitEnvironmentSections } from "../connection/environmentSections";
 import { cn } from "../../lib/cn";
 import { useThemeColor } from "../../lib/useThemeColor";
@@ -43,9 +44,13 @@ export function SettingsEnvironmentsRouteScreen() {
     ? SHOWCASE_CONNECTED_CLOUD_ENVIRONMENTS
     : environmentSections.connectedCloudEnvironments;
   const hasLocalEnvironments = localEnvironments.length > 0;
+  const [expandedId, setExpandedId] = useState<EnvironmentId | null>(null);
   const accentColor = useThemeColor("--color-icon-muted");
   const headerIconColor = useThemeColor("--color-icon");
 
+  const handleToggle = useCallback((environmentId: EnvironmentId) => {
+    setExpandedId((current) => toggleExpandedEnvironment(current, environmentId));
+  }, []);
   const handleUpdateEnvironment = useCallback(
     (
       environmentId: EnvironmentId,
@@ -120,13 +125,11 @@ export function SettingsEnvironmentsRouteScreen() {
               >
                 <ConnectionEnvironmentRow
                   environment={environment}
-                  expanded={false}
-                  opensDetails
-                  onToggle={() =>
+                  expanded={expandedId === environment.environmentId}
+                  onToggle={() => handleToggle(environment.environmentId)}
+                  onManageAccess={(environmentId) =>
                     navigation.dispatch(
-                      StackActions.push("SettingsEnvironmentDetails", {
-                        environmentId: environment.environmentId,
-                      }),
+                      StackActions.push("SettingsEnvironmentAccess", { environmentId }),
                     )
                   }
                   onReconnect={onReconnectEnvironment}

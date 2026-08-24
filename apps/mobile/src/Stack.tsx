@@ -33,7 +33,10 @@ import { GitOverviewSheet } from "./features/threads/git/GitOverviewSheet";
 import { ThreadRouteScreen } from "./features/threads/ThreadRouteScreen";
 import { ConnectionsRouteScreen } from "./features/connection/ConnectionsRouteScreen";
 import { ConnectionsNewRouteScreen } from "./features/connection/ConnectionsNewRouteScreen";
-import { ConnectionAccessRouteScreen } from "./features/connection/ConnectionAccessRouteScreen";
+import {
+  ConnectionAccessRouteScreen,
+  RootConnectionAccessRouteScreen,
+} from "./features/connection/ConnectionAccessRouteScreen";
 import { HomeRouteScreen } from "./features/home/HomeRouteScreen";
 import { AddProjectDestinationRoute } from "./features/projects/AddProjectDestinationRoute";
 import { AddProjectLocalRoute } from "./features/projects/AddProjectLocalRoute";
@@ -55,10 +58,6 @@ import { SettingsAppearanceRouteScreen } from "./features/settings/SettingsAppea
 import { SettingsClientStorageRouteScreen } from "./features/settings/SettingsClientStorageRouteScreen";
 import { SettingsAuthRouteScreen } from "./features/settings/SettingsAuthRouteScreen";
 import { SettingsEnvironmentsRouteScreen } from "./features/settings/SettingsEnvironmentsRouteScreen";
-import {
-  ConnectionDetailsRouteScreen,
-  SettingsEnvironmentDetailsRouteScreen,
-} from "./features/settings/SettingsEnvironmentDetailsRouteScreen";
 import { SettingsLegalRouteScreen } from "./features/settings/SettingsLegalRouteScreen";
 import { SettingsLegacyRouteScreen } from "./features/settings/SettingsLegacyRouteScreen";
 import { SettingsProjectGroupingRouteScreen } from "./features/settings/SettingsProjectGroupingRouteScreen";
@@ -169,13 +168,6 @@ const SettingsContentStack = createNativeStackNavigator({
       linking: "environments/:environmentId/access",
       options: {
         title: "Connection Access",
-      },
-    }),
-    SettingsEnvironmentDetails: createNativeStackScreen({
-      screen: SettingsEnvironmentDetailsRouteScreen,
-      linking: "environments/:environmentId/details",
-      options: {
-        title: "Environment Details",
       },
     }),
     SettingsEnvironmentNew: createNativeStackScreen({
@@ -350,7 +342,7 @@ const NewTaskSheetStack = createNativeStackNavigator({
 // influence the adaptive workspace layout: opening Settings over Home should
 // not flip the sidebar in or change the active thread.
 const WORKSPACE_OVERLAY_ROUTES = new Set([
-  "ConnectionDetails",
+  "ConnectionAccess",
   "ConnectOnboarding",
   "Connections",
   "ConnectionsNew",
@@ -653,11 +645,11 @@ export const RootStack = createNativeStackNavigator({
             }),
       },
     }),
-    ConnectionDetails: createNativeStackScreen({
-      screen: ConnectionDetailsRouteScreen,
-      linking: "connections/:environmentId/details",
+    ConnectionAccess: createNativeStackScreen({
+      screen: RootConnectionAccessRouteScreen,
+      linking: "connections/:environmentId/access",
       options: {
-        title: "Environment Details",
+        title: "Connection Access",
         gestureEnabled: true,
         ...(Platform.OS === "android"
           ? { presentation: "card" as const, headerShown: false }
