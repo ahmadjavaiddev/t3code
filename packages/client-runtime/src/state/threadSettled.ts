@@ -3,6 +3,17 @@ import type { OrchestrationThreadShell } from "@t3tools/contracts";
 
 export type ChangeRequestStateLike = "open" | "closed" | "merged";
 
+export function hasLiveThreadWork(
+  shell: Pick<OrchestrationThreadShell, "session" | "backgroundLiveness">,
+): boolean {
+  return (
+    shell.session?.status === "starting" ||
+    shell.session?.status === "running" ||
+    shell.backgroundLiveness === "working" ||
+    shell.backgroundLiveness === "monitoring"
+  );
+}
+
 /**
  * The slice of a change request the settle rules need. `updatedAt` is the
  * provider's last-activity timestamp; for a merged/closed request it bounds

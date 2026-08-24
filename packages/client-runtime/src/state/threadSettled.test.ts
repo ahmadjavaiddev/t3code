@@ -11,10 +11,30 @@ import {
   canSettle,
   changeRequestAutoSettles,
   effectiveSettled,
+  hasLiveThreadWork,
   hasQueuedTurnStart,
   threadLastActivityAt,
   type ChangeRequestStateLike,
 } from "./threadSettled.ts";
+
+describe("hasLiveThreadWork", () => {
+  it("excludes quiet threads", () => {
+    expect(hasLiveThreadWork({ session: null, backgroundLiveness: null })).toBe(false);
+  });
+
+  it.each(["starting", "running"] as const)("includes %s foreground sessions", (status) => {
+    expect(
+      hasLiveThreadWork({
+        session: { status } as NonNullable<OrchestrationThreadShell["session"]>,
+        backgroundLiveness: null,
+      }),
+    ).toBe(true);
+  });
+
+  it.each(["working", "monitoring"] as const)("includes %s background work", (liveness) => {
+    expect(hasLiveThreadWork({ session: null, backgroundLiveness: liveness })).toBe(true);
+  });
+});
 
 const NOW = "2026-04-10T00:00:00.000Z";
 const FRESH = "2026-04-09T00:00:00.000Z";

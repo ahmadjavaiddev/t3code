@@ -18,6 +18,15 @@ const decodeServerSettings = Schema.decodeUnknownSync(ServerSettings);
 const decodeServerSettingsPatch = Schema.decodeUnknownSync(ServerSettingsPatch);
 const encodeServerSettings = Schema.encodeSync(ServerSettings);
 
+describe("ClientSettings background thread sync", () => {
+  it("defaults to off and preserves an explicit opt-in", () => {
+    expect(decodeClientSettings({}).syncWorkingThreadMessages).toBe(false);
+    expect(
+      decodeClientSettings({ syncWorkingThreadMessages: true }).syncWorkingThreadMessages,
+    ).toBe(true);
+  });
+});
+
 describe("ClientSettings word wrap", () => {
   it("defaults word wrap on", () => {
     expect(decodeClientSettings({}).wordWrap).toBe(true);

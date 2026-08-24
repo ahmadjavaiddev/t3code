@@ -1910,6 +1910,32 @@ export function GeneralSettingsPanel() {
     <SettingsPageContainer>
       <SettingsSection title="General">
         <SettingsRow
+          {...searchableSetting("sync-working-thread-messages")}
+          description="Keep messages from actively working threads synced while this app is open."
+          resetAction={
+            settings.syncWorkingThreadMessages !==
+            DEFAULT_UNIFIED_SETTINGS.syncWorkingThreadMessages ? (
+              <SettingResetButton
+                label="sync working thread messages"
+                onClick={() =>
+                  updateSettings({
+                    syncWorkingThreadMessages: DEFAULT_UNIFIED_SETTINGS.syncWorkingThreadMessages,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <Switch
+              checked={settings.syncWorkingThreadMessages}
+              onCheckedChange={(checked) =>
+                updateSettings({ syncWorkingThreadMessages: Boolean(checked) })
+              }
+              aria-label="Sync working threads"
+            />
+          }
+        />
+        <SettingsRow
           {...searchableSetting("project-grouping")}
           description="Combine matching repositories across environments."
           resetAction={

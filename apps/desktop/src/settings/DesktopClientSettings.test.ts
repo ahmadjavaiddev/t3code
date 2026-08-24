@@ -37,6 +37,7 @@ const clientSettings: ClientSettings = {
   glassOpacity: 80,
   planModeEnabled: false,
   showSkillsInSlashMenu: false,
+  syncWorkingThreadMessages: true,
   providerModelPreferences: {},
   sidebarAutoSettleAfterDays: 3,
   sidebarAutoSettleOnMerge: true,

@@ -42,6 +42,7 @@ export interface Preferences {
   readonly legacyThreadListEnabled?: boolean;
   /** Device-local counterpart of desktop's `planModeEnabled` legacy flag. */
   readonly planModeEnabled?: boolean;
+  readonly syncWorkingThreadMessages?: boolean;
   /** Undefined preserves the default expanded Settled shelf. */
   readonly threadListV2SettledShelfExpanded?: boolean;
   /** Undefined preserves the default collapsed Snoozed shelf. */
@@ -104,6 +105,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     autoSettleOnMerge?: boolean;
     legacyThreadListEnabled?: boolean;
     planModeEnabled?: boolean;
+    syncWorkingThreadMessages?: boolean;
     threadListV2SettledShelfExpanded?: boolean;
     threadListV2SnoozedShelfExpanded?: boolean;
   } = {};
@@ -175,6 +177,9 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   }
   if (typeof parsed.planModeEnabled === "boolean") {
     preferences.planModeEnabled = parsed.planModeEnabled;
+  }
+  if (typeof parsed.syncWorkingThreadMessages === "boolean") {
+    preferences.syncWorkingThreadMessages = parsed.syncWorkingThreadMessages;
   }
   if (typeof parsed.threadListV2SettledShelfExpanded === "boolean") {
     preferences.threadListV2SettledShelfExpanded = parsed.threadListV2SettledShelfExpanded;
