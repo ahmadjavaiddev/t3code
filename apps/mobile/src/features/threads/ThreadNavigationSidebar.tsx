@@ -170,6 +170,7 @@ function ThreadNavigationSidebarPane(
     pinThread,
     unpinThread,
     movePinnedThread,
+    renameThread,
     regenerateThreadTitle,
   } = useThreadListActions();
   const threadListV2Enabled = useThreadListV2Enabled();
@@ -924,6 +925,7 @@ function ThreadNavigationSidebarPane(
               onDeleteThread={confirmDeleteThread}
               onArchiveThread={archiveThread}
               onRegenerateThreadTitle={regenerateThreadTitle}
+              onRenameThread={renameThread}
               titleRegenerationSupported={titleRegenerationEnvironmentIds.has(thread.environmentId)}
               settlementSupported={settlementEnvironmentIds.has(thread.environmentId)}
               onSettleThread={settleThread}
@@ -1045,6 +1047,7 @@ function ThreadNavigationSidebarPane(
               onArchiveThread={archiveThread}
               onDeleteThread={confirmDeleteThread}
               onRegenerateThreadTitle={regenerateThreadTitle}
+              onRenameThread={renameThread}
               titleRegenerationSupported={titleRegenerationEnvironmentIds.has(thread.environmentId)}
               onSelectThread={handleSelectThread}
               onSwipeableClose={handleSwipeableClose}
