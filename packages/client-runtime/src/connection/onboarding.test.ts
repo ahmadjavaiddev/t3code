@@ -1,4 +1,9 @@
-import { AuthStandardClientScopes, EnvironmentId } from "@t3tools/contracts";
+import {
+  AuthAccessReadScope,
+  AuthAccessWriteScope,
+  AuthStandardClientScopes,
+  EnvironmentId,
+} from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -138,6 +143,30 @@ describe("connection onboarding", () => {
       expect(calls.map((call) => call.url)).toEqual([
         "https://remote.example.test/.well-known/t3/environment",
       ]);
+    }),
+  );
+
+  it.effect("requests explicit access-management scopes when pairing opts in", () =>
+    Effect.gen(function* () {
+      const calls: Array<{ readonly url: string; readonly init: RequestInit }> = [];
+      const scopes = [
+        ...AuthStandardClientScopes,
+        AuthAccessReadScope,
+        AuthAccessWriteScope,
+      ] as const;
+
+      yield* preparePairingRegistration({
+        host: "remote.example.test",
+        pairingCode: "owner-pairing-token",
+        scopes,
+      }).pipe(Effect.provide(Layer.mergeAll(CLIENT_PRESENTATION_LAYER, pairingHttpLayer(calls))));
+
+      const tokenRequest = calls.find((call) => call.url.endsWith("/oauth/token"));
+      const tokenBody =
+        tokenRequest?.init.body instanceof Uint8Array
+          ? new TextDecoder().decode(tokenRequest.init.body)
+          : String(tokenRequest?.init.body);
+      expect(new URLSearchParams(tokenBody).get("scope")).toBe(scopes.join(" "));
     }),
   );
 

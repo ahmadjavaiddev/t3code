@@ -51,6 +51,10 @@
       "types": "./src/state/auth.ts",
       "default": "./src/state/auth.ts"
     },
+    "./state/auth-access": {
+      "types": "./src/state/authAccessHttp.ts",
+      "default": "./src/state/authAccessHttp.ts"
+    },
     "./state/assets": {
       "types": "./src/state/assets.ts",
       "default": "./src/state/assets.ts"

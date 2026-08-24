@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react";
 import type { PreparedConnection } from "@t3tools/client-runtime/connection";
-import type { EnvironmentId } from "@t3tools/contracts";
+import type { AuthEnvironmentScope, EnvironmentId } from "@t3tools/contracts";
 import type { ServerConfig } from "@t3tools/contracts";
 import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
@@ -162,10 +162,10 @@ export function useRemoteConnections() {
   }, []);
 
   const onConnectPress = useCallback(
-    async (pairingUrl?: string) => {
+    async (pairingUrl?: string, scopes?: ReadonlyArray<AuthEnvironmentScope>) => {
       const nextPairingUrl = pairingUrl ?? connectionPairingUrl;
       setPendingConnectionError(null);
-      const result = await controller.connectPairingUrl(nextPairingUrl);
+      const result = await controller.connectPairingUrl(nextPairingUrl, scopes);
       if (AsyncResult.isFailure(result)) {
         const error = Cause.squash(result.cause);
         const message =

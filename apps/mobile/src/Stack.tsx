@@ -33,6 +33,7 @@ import { GitOverviewSheet } from "./features/threads/git/GitOverviewSheet";
 import { ThreadRouteScreen } from "./features/threads/ThreadRouteScreen";
 import { ConnectionsRouteScreen } from "./features/connection/ConnectionsRouteScreen";
 import { ConnectionsNewRouteScreen } from "./features/connection/ConnectionsNewRouteScreen";
+import { ConnectionAccessRouteScreen } from "./features/connection/ConnectionAccessRouteScreen";
 import { HomeRouteScreen } from "./features/home/HomeRouteScreen";
 import { AddProjectDestinationRoute } from "./features/projects/AddProjectDestinationRoute";
 import { AddProjectLocalRoute } from "./features/projects/AddProjectLocalRoute";
@@ -154,6 +155,13 @@ const SettingsContentStack = createNativeStackNavigator({
       linking: "environments",
       options: {
         title: "Environments",
+      },
+    }),
+    SettingsEnvironmentAccess: createNativeStackScreen({
+      screen: ConnectionAccessRouteScreen,
+      linking: "environments/:environmentId/access",
+      options: {
+        title: "Connection Access",
       },
     }),
     SettingsEnvironmentNew: createNativeStackScreen({

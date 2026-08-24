@@ -3,7 +3,7 @@ import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/Stac
 import { StackActions, useNavigation, type StaticScreenProps } from "@react-navigation/native";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Linking, Platform, ScrollView, View } from "react-native";
+import { Alert, Linking, Platform, ScrollView, Switch, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColor } from "../../lib/useThemeColor";
 
@@ -13,11 +13,13 @@ import { ErrorBanner } from "../../components/ErrorBanner";
 import { ConnectionSheetButton } from "./ConnectionSheetButton";
 import { buildPairingUrl, extractPairingUrlFromQrPayload, parsePairingUrl } from "./pairing";
 import { useRemoteConnections } from "../../state/use-remote-environment-registry";
+import { pairingScopes } from "./connectionAccessModel";
 
 type ConnectionsNewRouteParams = {
   readonly mode?: string;
   readonly pairingUrl?: string;
   readonly autoConnect?: string;
+  readonly requestAccessManagement?: string;
 };
 
 export function ConnectionsNewRouteScreen({
@@ -43,11 +45,15 @@ export function ConnectionsNewRouteScreen({
   const [codeInput, setCodeInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showScanner, setShowScanner] = useState(params.mode === "scan_qr");
+  const [requestAccessManagement, setRequestAccessManagement] = useState(
+    params.requestAccessManagement === "1" || params.requestAccessManagement === "true",
+  );
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [scannerLocked, setScannerLocked] = useState(false);
   const attemptedAutoConnectRef = useRef<string | null>(null);
 
   const headerIconColor = useThemeColor("--color-icon");
+  const switchTrackColor = useThemeColor("--color-primary");
 
   const connectDisabled = isSubmitting || hostInput.trim().length === 0;
 
@@ -152,7 +158,7 @@ export function ConnectionsNewRouteScreen({
       setIsSubmitting(true);
       onChangeConnectionPairingUrl(pairingUrl);
       try {
-        const result = await onConnectPress(pairingUrl);
+        const result = await onConnectPress(pairingUrl, pairingScopes(requestAccessManagement));
         if (AsyncResult.isSuccess(result)) {
           if (replaceWithHome || !navigation.canGoBack()) {
             navigation.dispatch(StackActions.replace("Home"));
@@ -164,7 +170,7 @@ export function ConnectionsNewRouteScreen({
         setIsSubmitting(false);
       }
     },
-    [navigation, onChangeConnectionPairingUrl, onConnectPress],
+    [navigation, onChangeConnectionPairingUrl, onConnectPress, requestAccessManagement],
   );
 
   const handleSubmit = useCallback(async () => {
@@ -288,6 +294,24 @@ export function ConnectionsNewRouteScreen({
                   value={codeInput}
                   onChangeText={handleCodeChange}
                   className="rounded-[14px] border border-input-border bg-input px-4 py-3.5 text-base text-foreground"
+                />
+              </View>
+
+              <View className="flex-row items-center gap-3 rounded-[14px] bg-subtle px-3.5 py-3">
+                <View className="min-w-0 flex-1 gap-0.5">
+                  <Text className="text-sm font-t3-bold text-foreground">
+                    Connection management
+                  </Text>
+                  <Text className="text-xs leading-normal text-foreground-muted">
+                    Request permission to create pairing links and revoke clients. The link must
+                    grant this access.
+                  </Text>
+                </View>
+                <Switch
+                  accessibilityLabel="Request connection management"
+                  value={requestAccessManagement}
+                  onValueChange={setRequestAccessManagement}
+                  trackColor={{ true: switchTrackColor }}
                 />
               </View>
 

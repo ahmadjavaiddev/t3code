@@ -28,6 +28,7 @@ export function ConnectionEnvironmentRow(props: {
   readonly expanded: boolean;
   readonly onToggle: () => void;
   readonly onReconnect: (environmentId: EnvironmentId) => void;
+  readonly onManageAccess?: (environmentId: EnvironmentId) => void;
   readonly onRemove: (environmentId: EnvironmentId) => void;
   readonly onUpdate: (
     environmentId: EnvironmentId,
@@ -167,6 +168,21 @@ export function ConnectionEnvironmentRow(props: {
               </View>
             </>
           )}
+
+          {props.onManageAccess ? (
+            <Pressable
+              accessibilityLabel={`Manage access for ${props.environment.environmentLabel}`}
+              accessibilityRole="button"
+              className="min-h-[44px] flex-row items-center gap-2 rounded-[14px] border border-input-border bg-input px-3.5 py-2.5 active:opacity-70"
+              onPress={() => props.onManageAccess?.(props.environment.environmentId)}
+            >
+              <SymbolView name="link" size={14} tintColor={mutedColor} type="monochrome" />
+              <Text className="flex-1 text-sm font-t3-bold text-foreground">
+                Manage client access
+              </Text>
+              <SymbolView name="chevron.right" size={12} tintColor={mutedColor} type="monochrome" />
+            </Pressable>
+          ) : null}
 
           <View className="flex-row justify-end gap-2">
             {props.environment.isRelayManaged ? null : (

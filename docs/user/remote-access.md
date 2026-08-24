@@ -223,7 +223,20 @@ Hosted pairing does not proxy traffic through T3 Code. The browser still connect
 
 ## Managing Access Later
 
-Use `t3 auth` to manage access after the initial pairing flow.
+On mobile, open **Settings** → **Environments**, expand an environment, and choose **Manage client
+access**. A management-capable mobile session can:
+
+- create and share one-time pairing links
+- inspect active pairing links and authorized clients
+- revoke individual links or clients, or revoke every other client
+
+Ordinary mobile pairings intentionally cannot manage other clients. If the access screen asks for
+management permission, pair again with the owner link printed when the server starts (or a link
+created with **Connection management** enabled), then enable **Connection management** in the
+mobile **Add Environment** form. The server will reject the request unless that one-time link grants
+the same permission.
+
+You can also use `t3 auth` to manage access from the server machine after the initial pairing flow.
 
 Typical uses:
 

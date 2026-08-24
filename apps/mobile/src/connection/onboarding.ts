@@ -3,7 +3,7 @@ import {
   createAtomCommandScheduler,
   createRuntimeCommand,
 } from "@t3tools/client-runtime/state/runtime";
-import type { EnvironmentId } from "@t3tools/contracts";
+import type { AuthEnvironmentScope, EnvironmentId } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 
 import { connectionAtomRuntime } from "./runtime";
@@ -13,11 +13,18 @@ const onboardingScheduler = createAtomCommandScheduler();
 export const connectPairingUrl = createRuntimeCommand(connectionAtomRuntime, {
   label: "mobile:connection:connect-pairing-url",
   scheduler: onboardingScheduler,
-  concurrency: { mode: "singleFlight", key: (pairingUrl: string) => pairingUrl },
-  execute: (pairingUrl: string) =>
-    ConnectionOnboarding.pipe(
-      Effect.flatMap((onboarding) => onboarding.registerPairing({ pairingUrl })),
-    ),
+  concurrency: {
+    mode: "singleFlight",
+    key: (input: {
+      readonly pairingUrl: string;
+      readonly scopes?: ReadonlyArray<AuthEnvironmentScope>;
+    }) => input.pairingUrl,
+  },
+  execute: (input: {
+    readonly pairingUrl: string;
+    readonly scopes?: ReadonlyArray<AuthEnvironmentScope>;
+  }) =>
+    ConnectionOnboarding.pipe(Effect.flatMap((onboarding) => onboarding.registerPairing(input))),
 });
 
 export const updateBearerConnection = createRuntimeCommand(connectionAtomRuntime, {
