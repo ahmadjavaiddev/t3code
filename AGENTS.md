@@ -111,6 +111,7 @@ An empty database is a bad test. Seed your worktree's `.t3` with a copy of real 
 
 ## Pull requests
 
+- This fork's only writable GitHub repository is `ahmadjavaiddev/t3code`. Treat `pingdotgg/t3code` as strictly read-only, even when GitHub identifies it as the fork parent. Never push to it or create, comment on, review, label, close, or otherwise mutate its issues or pull requests. Before any GitHub mutation, verify `gh repo set-default --view` prints `ahmadjavaiddev/t3code`; stop if it does not.
 - Never make a PR unless the developer explicitly asks you to do so.
 - Conventional commit titles, plain language: `fix(web): new threads no longer spike CPU`.
 - Body: the problem in a sentence or two, then how you fixed it. End with the model and harness that did the work.
