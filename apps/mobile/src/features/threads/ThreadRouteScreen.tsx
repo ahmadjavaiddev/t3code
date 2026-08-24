@@ -22,9 +22,11 @@ import { vcsEnvironment } from "../../state/vcs";
 
 import { EmptyState } from "../../components/EmptyState";
 import {
+  AndroidHeaderIconButton,
   AndroidScreenHeader,
   type AndroidHeaderAction,
 } from "../../components/AndroidScreenHeader";
+import { AndroidAnchoredMenu } from "../../components/AndroidAnchoredMenu";
 import { LoadingScreen } from "../../components/LoadingScreen";
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
@@ -64,6 +66,7 @@ import { useSelectedThreadWorktree } from "../../state/use-selected-thread-workt
 import { useThreadComposerState } from "../../state/use-thread-composer-state";
 import { threadEnvironment } from "../../state/threads";
 import { projectThreadContentPresentation } from "./threadContentPresentation";
+import { useThreadListActions } from "../home/useThreadListActions";
 import {
   useAdaptiveWorkspaceLayout,
   useAdaptiveWorkspacePaneRole,
@@ -213,6 +216,7 @@ function ThreadRouteContent(
   const gitState = useSelectedThreadGitState();
   const gitActions = useSelectedThreadGitActions();
   const requests = useSelectedThreadRequests();
+  const { renameThread } = useThreadListActions();
   const interruptThreadTurn = useAtomCommand(threadEnvironment.interruptTurn, "thread interrupt");
   const navigation = useNavigation();
   const params = props.route.params;
@@ -632,6 +636,7 @@ function ThreadRouteContent(
     onOpenTerminal: handleOpenTerminal,
     onOpenNewTerminal: handleOpenNewTerminal,
     onRunProjectScript: handleRunProjectScript,
+    onRenameThread: () => selectedThread && renameThread(selectedThread),
     onPull: gitActions.onPullSelectedThreadBranch,
     onRunAction: gitActions.onRunSelectedThreadGitAction,
   };
@@ -689,25 +694,6 @@ function ThreadRouteContent(
         onPress: props.onReturnToThread,
       });
     }
-    if (selectedThreadCwd !== null) {
-      actions.push({
-        accessibilityLabel: "Open files",
-        icon: "folder",
-        onPress: handleOpenFilesInspector,
-      });
-    }
-    if (selectedThreadProject?.workspaceRoot) {
-      actions.push({
-        accessibilityLabel: "Open terminal",
-        icon: "terminal",
-        onPress: () => handleOpenTerminal(null),
-      });
-    }
-    actions.push({
-      accessibilityLabel: "Open git controls",
-      icon: "point.topleft.down.curvedto.point.bottomright.up",
-      onPress: handleOpenGitInspector,
-    });
     if (fileInspector.supported && selectedThreadCwd !== null) {
       actions.push({
         accessibilityLabel: "Toggle inspector",
@@ -726,6 +712,40 @@ function ThreadRouteContent(
     selectedThreadCwd,
     selectedThreadProject?.workspaceRoot,
   ]);
+  const androidThreadMenuActions = useMemo(
+    () => [
+      { id: "rename", title: "Rename thread", image: "pencil" },
+      {
+        id: "files",
+        title: "Files",
+        image: "folder",
+        attributes: selectedThreadCwd === null ? { disabled: true as const } : undefined,
+      },
+      {
+        id: "terminal",
+        title: "Terminal",
+        image: "terminal",
+        attributes: selectedThreadProject?.workspaceRoot ? undefined : { disabled: true as const },
+      },
+      { id: "git", title: "Git", image: "point.topleft.down.curvedto.point.bottomright.up" },
+    ],
+    [selectedThreadCwd, selectedThreadProject?.workspaceRoot],
+  );
+  const handleAndroidThreadMenuAction = useCallback(
+    (event: { nativeEvent: { event: string } }) => {
+      if (event.nativeEvent.event === "rename" && selectedThread) renameThread(selectedThread);
+      if (event.nativeEvent.event === "files") handleOpenFilesInspector();
+      if (event.nativeEvent.event === "terminal") handleOpenTerminal(null);
+      if (event.nativeEvent.event === "git") handleOpenGitInspector();
+    },
+    [
+      handleOpenFilesInspector,
+      handleOpenGitInspector,
+      handleOpenTerminal,
+      renameThread,
+      selectedThread,
+    ],
+  );
 
   // Deep links / cold starts land with Thread as the ONLY route, where the
   // native back button does not render. Provide an explicit Home escape for
@@ -857,6 +877,15 @@ function ThreadRouteContent(
           subtitle={headerSubtitle}
           onBack={layout.usesSplitView ? undefined : () => navigation.goBack()}
           actions={androidHeaderActions}
+          trailing={
+            <AndroidAnchoredMenu
+              actions={androidThreadMenuActions}
+              onPressAction={handleAndroidThreadMenuAction}
+              title="Thread actions"
+            >
+              <AndroidHeaderIconButton accessibilityLabel="Thread actions" icon="ellipsis" />
+            </AndroidAnchoredMenu>
+          }
         />
       ) : null}
 
