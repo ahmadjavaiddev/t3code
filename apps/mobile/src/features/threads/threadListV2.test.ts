@@ -150,6 +150,25 @@ describe("resolveThreadListV2Status", () => {
       "ready",
     );
   });
+
+  it("resolves done only while the latest completion is unseen", () => {
+    const thread = makeThread({
+      id: ThreadId.make("t"),
+      title: "t",
+      latestTurn: {
+        turnId: TurnId.make("turn"),
+        state: "completed",
+        requestedAt: "2026-01-01T00:00:00.000Z",
+        startedAt: "2026-01-01T00:00:01.000Z",
+        completedAt: "2026-01-01T00:00:02.000Z",
+        assistantMessageId: null,
+      },
+    });
+
+    expect(resolveThreadListV2Status(thread, "2026-01-01T00:00:01.000Z")).toBe("done");
+    expect(resolveThreadListV2Status(thread, "2026-01-01T00:00:02.000Z")).toBe("ready");
+    expect(resolveThreadListV2Status(thread)).toBe("ready");
+  });
 });
 
 describe("resolveThreadListV2SwipeActions", () => {
