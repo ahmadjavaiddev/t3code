@@ -3,6 +3,7 @@ import type {
   EnvironmentThreadShell,
 } from "@t3tools/client-runtime/state/shell";
 import { threadSearchMatchKey } from "@t3tools/client-runtime/state/thread-search";
+import { deriveProjectGroupingOverrideKey } from "@t3tools/client-runtime/state/project-grouping";
 import { EnvironmentId, ProjectId, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -113,6 +114,45 @@ describe("buildHomeThreadGroups", () => {
         projectId: project.id,
       })),
     );
+  });
+
+  it("applies a per-checkout grouping override", () => {
+    const environmentId = EnvironmentId.make("environment-local");
+    const repositoryIdentity = {
+      canonicalKey: "github.com/pingdotgg/t3code",
+      locator: {
+        source: "git-remote" as const,
+        remoteName: "origin",
+        remoteUrl: "git@github.com:pingdotgg/t3code.git",
+      },
+    };
+    const projects = [
+      makeProject({
+        environmentId,
+        id: ProjectId.make("project-one"),
+        title: "T3 Code",
+        workspaceRoot: "/workspaces/t3code-one",
+        repositoryIdentity,
+      }),
+      makeProject({
+        environmentId,
+        id: ProjectId.make("project-two"),
+        title: "T3 Code",
+        workspaceRoot: "/workspaces/t3code-two",
+        repositoryIdentity,
+      }),
+    ];
+
+    expect(
+      buildHomeProjectScopes({
+        projects,
+        environmentId: null,
+        projectGroupingMode: "repository",
+        projectGroupingOverrides: {
+          [deriveProjectGroupingOverrideKey(projects[1]!)]: "separate",
+        },
+      }),
+    ).toHaveLength(2);
   });
 
   it("routes stale duplicate project refs through the canonical repository group", () => {

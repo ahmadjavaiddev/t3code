@@ -31,6 +31,8 @@ export interface Preferences {
   /** @deprecated Kept temporarily so older OTA bundles retain the selected mode. */
   readonly projectGroupingEnabled?: boolean;
   readonly projectGroupingMode?: SidebarProjectGroupingMode;
+  /** Device-local per-checkout grouping rules, matching the web project settings. */
+  readonly projectGroupingOverrides?: Readonly<Record<string, SidebarProjectGroupingMode>>;
   readonly autoSettleOnMerge?: boolean;
   /**
    * Device-local mirror of the web `legacySidebarEnabled` setting. Mobile has
@@ -110,6 +112,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     collapsedProjectGroups?: readonly string[];
     projectGroupingEnabled?: boolean;
     projectGroupingMode?: SidebarProjectGroupingMode;
+    projectGroupingOverrides?: Readonly<Record<string, SidebarProjectGroupingMode>>;
     autoSettleOnMerge?: boolean;
     legacyThreadListEnabled?: boolean;
     planModeEnabled?: boolean;
@@ -180,6 +183,19 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     parsed.projectGroupingMode === "separate"
   ) {
     preferences.projectGroupingMode = parsed.projectGroupingMode;
+  }
+  if (
+    parsed.projectGroupingOverrides &&
+    typeof parsed.projectGroupingOverrides === "object" &&
+    !Array.isArray(parsed.projectGroupingOverrides)
+  ) {
+    preferences.projectGroupingOverrides = Object.fromEntries(
+      Object.entries(parsed.projectGroupingOverrides).filter(
+        (entry): entry is [string, SidebarProjectGroupingMode] =>
+          entry[0].length > 0 &&
+          (entry[1] === "repository" || entry[1] === "repository_path" || entry[1] === "separate"),
+      ),
+    );
   }
   if (typeof parsed.autoSettleOnMerge === "boolean") {
     preferences.autoSettleOnMerge = parsed.autoSettleOnMerge;

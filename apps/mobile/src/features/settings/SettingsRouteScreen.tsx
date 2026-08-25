@@ -42,6 +42,7 @@ import {
   runAppUpdateCheck,
 } from "../updates/app-updates";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
+import { useProjects } from "../../state/entities";
 import { SyncSettingsSection } from "../background-connection/BackgroundConnectionSettingsSection";
 import { SettingsRow } from "./components/SettingsRow";
 import { SettingsSection } from "./components/SettingsSection";
@@ -104,6 +105,7 @@ function LocalSettingsRouteScreen() {
   const insets = useSafeAreaInsets();
   const { savedConnectionsById } = useSavedRemoteConnections();
   const environmentCount = Object.keys(savedConnectionsById).length;
+  const projectCount = useProjects().length;
 
   return (
     <View collapsable={false} className="flex-1 bg-sheet">
@@ -122,6 +124,12 @@ function LocalSettingsRouteScreen() {
             label="Environments"
             value={`${environmentCount}`}
             target="SettingsEnvironments"
+          />
+          <SettingsRow
+            icon="folder"
+            label="Projects"
+            value={`${projectCount}`}
+            target="SettingsProjects"
           />
         </SettingsSection>
 
@@ -146,6 +154,7 @@ function ConfiguredSettingsRouteScreen() {
   const agentAwarenessPlatform = resolveAgentAwarenessPlatformPresentation(Platform.OS);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const projectCount = useProjects().length;
   const { getToken, isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
   const { user } = useUser();
   const { savedConnectionsById } = useSavedRemoteConnections();
@@ -468,6 +477,12 @@ function ConfiguredSettingsRouteScreen() {
             label="Environments"
             value={`${environmentCount}`}
             target="SettingsEnvironments"
+          />
+          <SettingsRow
+            icon="folder"
+            label="Projects"
+            value={`${projectCount}`}
+            target="SettingsProjects"
           />
           <SettingsSwitchRow
             icon="bell.badge"

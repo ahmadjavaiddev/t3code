@@ -106,6 +106,7 @@ interface ThreadNavigationSidebarProps {
   readonly onOpenTodos: () => void;
   readonly onOpenEnvironmentSettings: () => void;
   readonly onNewThreadInProject: (project: EnvironmentProject) => void;
+  readonly onOpenProjectSettings: (project: EnvironmentProject) => void;
   readonly onSearchQueryChange: (query: string) => void;
   readonly onSelectThread: (thread: EnvironmentThreadShell) => void;
   readonly onRequestVisibility: () => void;
@@ -240,8 +241,14 @@ function ThreadNavigationSidebarPane(
         projects,
         environmentId: options.selectedEnvironmentId,
         projectGroupingMode: options.projectGroupingMode,
+        projectGroupingOverrides: options.projectGroupingOverrides,
       }),
-    [options.projectGroupingMode, options.selectedEnvironmentId, projects],
+    [
+      options.projectGroupingMode,
+      options.projectGroupingOverrides,
+      options.selectedEnvironmentId,
+      projects,
+    ],
   );
   const projectFilterOptions = useMemo(
     () =>
@@ -333,6 +340,7 @@ function ThreadNavigationSidebarPane(
         projectSortOrder: options.projectSortOrder,
         threadSortOrder: options.threadSortOrder,
         projectGroupingMode: options.projectGroupingMode,
+        projectGroupingOverrides: options.projectGroupingOverrides,
       }),
     [
       matchedThreadKeys,
@@ -1017,6 +1025,8 @@ function ThreadNavigationSidebarPane(
               // placeholder shell rather than a real project.
               newThreadTarget={item.group.newThreadTarget}
               onNewThread={props.onNewThreadInProject}
+              projectSettingsTarget={item.group.newThreadTarget}
+              onOpenProjectSettings={props.onOpenProjectSettings}
               project={item.group.representative}
               threadCount={item.group.threads.length + item.group.pendingTasks.length}
               title={item.group.title}

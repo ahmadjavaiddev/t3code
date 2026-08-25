@@ -509,6 +509,13 @@ function ThreadRouteContent(
       projectId: String(selectedThreadProject.id),
     });
   }, [navigation, selectedThread, selectedThreadProject]);
+  const handleOpenProjectSettings = useCallback(() => {
+    if (!selectedThread || !selectedThreadProject) return;
+    navigation.navigate("ProjectSettings", {
+      environmentId: String(selectedThread.environmentId),
+      projectId: String(selectedThreadProject.id),
+    });
+  }, [navigation, selectedThread, selectedThreadProject]);
   const handleStopThread = useCallback(() => {
     if (
       !selectedThread ||
@@ -662,6 +669,7 @@ function ThreadRouteContent(
     showDirectFileControl: layout.usesSplitView,
     onOpenTerminal: handleOpenTerminal,
     onOpenTodos: handleOpenTodos,
+    onOpenProjectSettings: handleOpenProjectSettings,
     onOpenNewTerminal: handleOpenNewTerminal,
     onRunProjectScript: handleRunProjectScript,
     onRenameThread: () => selectedThread && renameThread(selectedThread),
@@ -741,6 +749,12 @@ function ThreadRouteContent(
         attributes: selectedThreadProject ? undefined : { disabled: true as const },
       },
       {
+        id: "project-settings",
+        title: "Project settings",
+        image: "gearshape",
+        attributes: selectedThreadProject ? undefined : { disabled: true as const },
+      },
+      {
         id: "files",
         title: "Files",
         image: "folder",
@@ -760,6 +774,7 @@ function ThreadRouteContent(
     (event: { nativeEvent: { event: string } }) => {
       if (event.nativeEvent.event === "rename" && selectedThread) renameThread(selectedThread);
       if (event.nativeEvent.event === "todos") handleOpenTodos();
+      if (event.nativeEvent.event === "project-settings") handleOpenProjectSettings();
       if (event.nativeEvent.event === "files") handleOpenFilesInspector();
       if (event.nativeEvent.event === "terminal") handleOpenTerminal(null);
       if (event.nativeEvent.event === "git") handleOpenGitInspector();
@@ -768,6 +783,7 @@ function ThreadRouteContent(
       handleOpenFilesInspector,
       handleOpenGitInspector,
       handleOpenTodos,
+      handleOpenProjectSettings,
       handleOpenTerminal,
       renameThread,
       selectedThread,

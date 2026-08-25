@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   mobileProjectGroupingModePatch,
+  mobileProjectGroupingOverridesPatch,
   resolveMobileProjectGroupingSettings,
 } from "./project-grouping.logic";
 
@@ -28,6 +29,21 @@ describe("mobile project grouping preferences", () => {
     expect(mobileProjectGroupingModePatch("repository_path")).toEqual({
       projectGroupingMode: "repository_path",
       projectGroupingEnabled: true,
+    });
+  });
+
+  it("preserves device-local checkout overrides", () => {
+    const overrides = {
+      "environment-1:/work/t3code": "separate" as const,
+      "environment-2:/work/t3code": "repository_path" as const,
+    };
+
+    expect(
+      resolveMobileProjectGroupingSettings({ projectGroupingOverrides: overrides })
+        .sidebarProjectGroupingOverrides,
+    ).toEqual(overrides);
+    expect(mobileProjectGroupingOverridesPatch(overrides)).toEqual({
+      projectGroupingOverrides: overrides,
     });
   });
 });

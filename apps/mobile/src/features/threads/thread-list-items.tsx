@@ -86,10 +86,14 @@ export const ThreadListGroupHeader = memo(function ThreadListGroupHeader(props: 
   /** Project a quick new thread should target; null hides the button. */
   readonly newThreadTarget?: EnvironmentProject | null;
   readonly onNewThread?: (project: EnvironmentProject) => void;
+  /** Real project represented by this group; null hides project settings. */
+  readonly projectSettingsTarget?: EnvironmentProject | null;
+  readonly onOpenProjectSettings?: (project: EnvironmentProject) => void;
 }) {
   const iconMutedColor = useThemeColor("--color-icon-muted");
   const { groupKey, onGroupAction, onNewThread } = props;
   const newThreadTarget = props.newThreadTarget ?? null;
+  const projectSettingsTarget = props.projectSettingsTarget ?? null;
   const compact = props.variant === "compact";
   const handleToggle = useCallback(
     () => onGroupAction(groupKey, "toggle-collapsed"),
@@ -101,6 +105,11 @@ export const ThreadListGroupHeader = memo(function ThreadListGroupHeader(props: 
     }
   }, [newThreadTarget, onNewThread]);
   const showNewThreadButton = onNewThread !== undefined && newThreadTarget !== null;
+  const showProjectSettingsButton =
+    props.onOpenProjectSettings !== undefined && projectSettingsTarget !== null;
+  const handleOpenProjectSettings = useCallback(() => {
+    if (projectSettingsTarget) props.onOpenProjectSettings?.(projectSettingsTarget);
+  }, [projectSettingsTarget, props.onOpenProjectSettings]);
 
   // The new-thread button is a SIBLING of the collapse toggle, not a child:
   // nested touchables are unreachable to VoiceOver/TalkBack (the parent
@@ -160,6 +169,23 @@ export const ThreadListGroupHeader = memo(function ThreadListGroupHeader(props: 
           {props.threadCount}
         </Text>
       </Pressable>
+      {showProjectSettingsButton ? (
+        <Pressable
+          accessibilityLabel={`Project settings for ${props.title}`}
+          accessibilityRole="button"
+          hitSlop={{ ...verticalHitSlop, left: 10, right: 10 }}
+          onPress={handleOpenProjectSettings}
+          style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1, paddingLeft: 10 })}
+        >
+          <SymbolView
+            name="gearshape"
+            size={compact ? 18 : 15}
+            tintColor={iconMutedColor}
+            type="monochrome"
+            weight="medium"
+          />
+        </Pressable>
+      ) : null}
       {showNewThreadButton ? (
         <Pressable
           accessibilityLabel={`Create new thread in ${props.title}`}

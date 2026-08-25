@@ -93,6 +93,7 @@ interface HomeScreenProps {
   readonly projectSortOrder: HomeProjectSortOrder;
   readonly threadSortOrder: SidebarThreadSortOrder;
   readonly projectGroupingMode: SidebarProjectGroupingMode;
+  readonly projectGroupingOverrides: Readonly<Record<string, SidebarProjectGroupingMode>>;
   readonly onSearchQueryChange: (query: string) => void;
   readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
   readonly onProjectChange: (projectKey: string | null) => void;
@@ -123,6 +124,7 @@ interface HomeScreenProps {
   readonly onSelectPendingTask: (pendingTask: PendingNewTask) => void;
   readonly onDeletePendingTask: (pendingTask: PendingNewTask) => void;
   readonly onNewThreadInProject: (project: EnvironmentProject) => void;
+  readonly onOpenProjectSettings: (project: EnvironmentProject) => void;
 }
 
 /* ─── Layout constants ───────────────────────────────────────────────── */
@@ -320,8 +322,14 @@ export function HomeScreen(props: HomeScreenProps) {
         projects: props.projects,
         environmentId: props.selectedEnvironmentId,
         projectGroupingMode: props.projectGroupingMode,
+        projectGroupingOverrides: props.projectGroupingOverrides,
       }),
-    [props.projectGroupingMode, props.projects, props.selectedEnvironmentId],
+    [
+      props.projectGroupingMode,
+      props.projectGroupingOverrides,
+      props.projects,
+      props.selectedEnvironmentId,
+    ],
   );
   const selectedProjectScope = useMemo(
     () =>
@@ -391,9 +399,11 @@ export function HomeScreen(props: HomeScreenProps) {
         projectSortOrder: props.projectSortOrder,
         threadSortOrder: props.threadSortOrder,
         projectGroupingMode: props.projectGroupingMode,
+        projectGroupingOverrides: props.projectGroupingOverrides,
       }),
     [
       props.projectGroupingMode,
+      props.projectGroupingOverrides,
       props.projectSortOrder,
       props.searchQuery,
       props.selectedEnvironmentId,
@@ -994,6 +1004,8 @@ export function HomeScreen(props: HomeScreenProps) {
               // so the quick new-thread button is single-real-project only.
               newThreadTarget={item.group.newThreadTarget}
               onNewThread={props.onNewThreadInProject}
+              projectSettingsTarget={item.group.newThreadTarget}
+              onOpenProjectSettings={props.onOpenProjectSettings}
               project={item.group.representative}
               threadCount={item.group.threads.length + item.group.pendingTasks.length}
               title={item.group.title}

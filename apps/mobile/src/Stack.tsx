@@ -42,6 +42,7 @@ import { AddProjectDestinationRoute } from "./features/projects/AddProjectDestin
 import { AddProjectLocalRoute } from "./features/projects/AddProjectLocalRoute";
 import { AddProjectRepositoryRoute } from "./features/projects/AddProjectRepositoryRoute";
 import { AddProjectSourceRoute } from "./features/projects/AddProjectSourceRoute";
+import { ProjectSettingsRouteScreen } from "./features/projects/ProjectSettingsRouteScreen";
 import { NewTaskDraftRouteScreen } from "./features/threads/NewTaskDraftRouteScreen";
 import {
   NewTaskBranchPickerRouteScreen,
@@ -61,6 +62,7 @@ import { SettingsEnvironmentsRouteScreen } from "./features/settings/SettingsEnv
 import { SettingsLegalRouteScreen } from "./features/settings/SettingsLegalRouteScreen";
 import { SettingsLegacyRouteScreen } from "./features/settings/SettingsLegacyRouteScreen";
 import { SettingsProjectGroupingRouteScreen } from "./features/settings/SettingsProjectGroupingRouteScreen";
+import { SettingsProjectsRouteScreen } from "./features/settings/SettingsProjectsRouteScreen";
 import { UsageRouteScreen } from "./features/usage/UsageRouteScreen";
 import { ProjectTodosRouteScreen } from "./features/todos/ProjectTodosRouteScreen";
 import { SettingsRouteScreen } from "./features/settings/SettingsRouteScreen";
@@ -197,6 +199,20 @@ const SettingsContentStack = createNativeStackNavigator({
       linking: "project-grouping",
       options: {
         title: "Project Grouping",
+      },
+    }),
+    SettingsProjects: createNativeStackScreen({
+      screen: SettingsProjectsRouteScreen,
+      linking: "projects",
+      options: {
+        title: "Projects",
+      },
+    }),
+    SettingsProjectDetails: createNativeStackScreen({
+      screen: ProjectSettingsRouteScreen,
+      linking: "projects/:environmentId/:projectId",
+      options: {
+        title: "Project settings",
       },
     }),
     SettingsLegacy: createNativeStackScreen({
@@ -554,6 +570,15 @@ export const RootStack = createNativeStackNavigator({
               sheetAllowedDetents: [0.7, 0.92],
               sheetGrabberVisible: true,
             }),
+      },
+    }),
+    ProjectSettings: createNativeStackScreen({
+      screen: ProjectSettingsRouteScreen,
+      linking: "projects/:environmentId/:projectId/settings",
+      options: {
+        ...GLASS_HEADER_OPTIONS,
+        title: "Project settings",
+        ...(Platform.OS === "android" ? { headerShown: false } : {}),
       },
     }),
     GitOverview: createNativeStackScreen({

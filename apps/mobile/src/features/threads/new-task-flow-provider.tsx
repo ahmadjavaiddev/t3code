@@ -202,12 +202,13 @@ export function NewTaskFlowProvider(props: React.PropsWithChildren) {
           projects,
           environmentId: null,
           projectGroupingMode: groupingSettings.sidebarProjectGroupingMode,
+          projectGroupingOverrides: groupingSettings.sidebarProjectGroupingOverrides,
         }),
         threads,
         pendingTasks: [],
         projectSortOrder: "updated_at",
       }),
-    [groupingSettings.sidebarProjectGroupingMode, projects, threads],
+    [groupingSettings, projects, threads],
   );
 
   const [selectedEnvironmentIdOverride, setSelectedEnvironmentId] = useState<EnvironmentId | null>(

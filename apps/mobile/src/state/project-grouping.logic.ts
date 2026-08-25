@@ -15,7 +15,7 @@ export function resolveMobileProjectGroupingSettings(
     sidebarProjectGroupingMode:
       preferences.projectGroupingMode ??
       (preferences.projectGroupingEnabled === false ? "separate" : "repository"),
-    sidebarProjectGroupingOverrides: {},
+    sidebarProjectGroupingOverrides: { ...preferences.projectGroupingOverrides },
   };
 }
 
@@ -30,4 +30,10 @@ export function mobileProjectGroupingModePatch(
     projectGroupingMode: mode,
     projectGroupingEnabled: mode !== "separate",
   };
+}
+
+export function mobileProjectGroupingOverridesPatch(
+  overrides: Readonly<Record<string, SidebarProjectGroupingMode>>,
+): Partial<Preferences> {
+  return { projectGroupingOverrides: { ...overrides } };
 }

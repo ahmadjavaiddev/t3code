@@ -198,6 +198,9 @@ export function AdaptiveWorkspaceLayout(props: {
       <AdaptiveWorkspaceLayoutContent
         {...props}
         projectGroupingMode={DEFAULT_MOBILE_PROJECT_GROUPING_SETTINGS.sidebarProjectGroupingMode}
+        projectGroupingOverrides={
+          DEFAULT_MOBILE_PROJECT_GROUPING_SETTINGS.sidebarProjectGroupingOverrides
+        }
       />
     ) : null;
   }
@@ -206,6 +209,7 @@ export function AdaptiveWorkspaceLayout(props: {
     <AdaptiveWorkspaceLayoutContent
       {...props}
       projectGroupingMode={groupingSettings.sidebarProjectGroupingMode}
+      projectGroupingOverrides={groupingSettings.sidebarProjectGroupingOverrides}
     />
   );
 }
@@ -216,9 +220,11 @@ function AdaptiveWorkspaceLayoutContent(
     readonly pathname: string;
   } & {
     readonly projectGroupingMode: SidebarProjectGroupingMode;
+    readonly projectGroupingOverrides: Readonly<Record<string, SidebarProjectGroupingMode>>;
   },
 ) {
   const projectGroupingMode = props.projectGroupingMode;
+  const projectGroupingOverrides = props.projectGroupingOverrides;
   const { width, height } = useWindowDimensions();
   const pathname = props.pathname;
   const navigation = useNavigation();
@@ -467,6 +473,16 @@ function AdaptiveWorkspaceLayoutContent(
     [navigation],
   );
 
+  const handleOpenProjectSettings = useCallback(
+    (project: EnvironmentProject) => {
+      navigation.navigate("ProjectSettings", {
+        environmentId: String(project.environmentId),
+        projectId: String(project.id),
+      });
+    },
+    [navigation],
+  );
+
   const renderedSidebarWidth = useSharedValue(
     panes.primarySidebarVisible ? (layout.listPaneWidth ?? 0) : 0,
   );
@@ -523,7 +539,10 @@ function AdaptiveWorkspaceLayoutContent(
   );
 
   return (
-    <HomeListOptionsProvider projectGroupingMode={projectGroupingMode}>
+    <HomeListOptionsProvider
+      projectGroupingMode={projectGroupingMode}
+      projectGroupingOverrides={projectGroupingOverrides}
+    >
       <AdaptiveWorkspaceContext.Provider value={contextValue}>
         <View testID="adaptive-workspace-layout" className="flex-1 flex-row">
           {shouldRenderPrimarySidebar && layout.listPaneWidth !== null ? (
@@ -548,6 +567,7 @@ function AdaptiveWorkspaceLayoutContent(
                     onOpenTodos={handleOpenTodos}
                     onOpenEnvironmentSettings={handleOpenEnvironmentSettings}
                     onNewThreadInProject={handleNewThreadInProject}
+                    onOpenProjectSettings={handleOpenProjectSettings}
                     onSelectThread={handleSelectThread}
                     onSearchQueryChange={setPrimarySidebarSearchQuery}
                     searchQuery={primarySidebarSearchQuery}
