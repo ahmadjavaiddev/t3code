@@ -82,4 +82,28 @@ describe("connection access model", () => {
       ]).map((value) => value.id),
     ).toEqual(["newer", "older"]);
   });
+
+  it("sorts access records without array methods unavailable in Hermes", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(Array.prototype, "toSorted");
+    Reflect.deleteProperty(Array.prototype, "toSorted");
+
+    try {
+      expect(
+        sortPairingLinks([
+          pairingLink("older", "2026-08-20T00:00:00Z"),
+          pairingLink("newer", "2026-08-21T00:00:00Z"),
+        ]).map((value) => value.id),
+      ).toEqual(["newer", "older"]);
+      expect(
+        sortClientSessions([
+          clientSession({ id: "inactive" }),
+          clientSession({ id: "current", current: true }),
+        ]).map((value) => value.sessionId),
+      ).toEqual(["current", "inactive"]);
+    } finally {
+      if (descriptor !== undefined) {
+        Reflect.defineProperty(Array.prototype, "toSorted", descriptor);
+      }
+    }
+  });
 });

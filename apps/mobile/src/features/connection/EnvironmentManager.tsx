@@ -1,7 +1,7 @@
 import type { MenuAction } from "@react-native-menu/menu";
 import type { AtomCommandResult } from "@t3tools/client-runtime/state/runtime";
 import type { EnvironmentId } from "@t3tools/contracts";
-import { useMemo, useState } from "react";
+import { Component, useMemo, useState, type ErrorInfo, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
 
 import { AppText as Text } from "../../components/AppText";
@@ -53,13 +53,62 @@ export function EnvironmentManager(props: {
         />
       </View>
 
-      <ConnectionAccessContent
-        key={`access:${selectedEnvironment.environmentId}`}
-        environmentId={selectedEnvironment.environmentId}
-        managementPairingRoute={props.managementPairingRoute}
-      />
+      <ConnectionAccessErrorBoundary key={`access-boundary:${selectedEnvironment.environmentId}`}>
+        <ConnectionAccessContent
+          key={`access:${selectedEnvironment.environmentId}`}
+          environmentId={selectedEnvironment.environmentId}
+          managementPairingRoute={props.managementPairingRoute}
+        />
+      </ConnectionAccessErrorBoundary>
     </View>
   );
+}
+
+class ConnectionAccessErrorBoundary extends Component<
+  { readonly children: ReactNode },
+  { readonly hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: unknown, info: ErrorInfo) {
+    console.error("[connection-access] render failed", error, info.componentStack);
+  }
+
+  private retry = () => {
+    this.setState({ hasError: false });
+  };
+
+  render() {
+    if (!this.state.hasError) return this.props.children;
+
+    return (
+      <View className="gap-4 rounded-[24px] bg-card p-5">
+        <View className="gap-2">
+          <Text className="text-lg font-t3-bold text-foreground">
+            Could not show connection access
+          </Text>
+          <Text className="text-sm leading-normal text-foreground-muted">
+            The environment details are still available. Retry loading its pairing links and
+            authorized clients.
+          </Text>
+        </View>
+        <Pressable
+          accessibilityLabel="Retry connection access"
+          accessibilityRole="button"
+          className="min-h-[48px] items-center justify-center rounded-[16px] bg-primary px-4 py-3 active:opacity-70"
+          onPress={this.retry}
+        >
+          <Text className="text-xs font-t3-bold tracking-[0.8px] uppercase text-primary-foreground">
+            Retry
+          </Text>
+        </Pressable>
+      </View>
+    );
+  }
 }
 
 function EnvironmentSelector(props: {

@@ -33,7 +33,8 @@ export function canWriteEnvironmentAccess(
 export function sortPairingLinks(
   pairingLinks: ReadonlyArray<AuthPairingLink>,
 ): ReadonlyArray<AuthPairingLink> {
-  return pairingLinks.toSorted(
+  // Hermes does not ship the ES2023 change-by-copy array methods.
+  return [...pairingLinks].sort(
     (left, right) => right.createdAt.epochMilliseconds - left.createdAt.epochMilliseconds,
   );
 }
@@ -41,7 +42,7 @@ export function sortPairingLinks(
 export function sortClientSessions(
   clientSessions: ReadonlyArray<AuthClientSession>,
 ): ReadonlyArray<AuthClientSession> {
-  return clientSessions.toSorted((left, right) => {
+  return [...clientSessions].sort((left, right) => {
     if (left.current !== right.current) return left.current ? -1 : 1;
     if (left.connected !== right.connected) return left.connected ? -1 : 1;
     return right.issuedAt.epochMilliseconds - left.issuedAt.epochMilliseconds;
