@@ -6,6 +6,7 @@ import {
   applyProjectTodoEdit,
   projectTodosForScope,
   projectTodoStatusLabel,
+  projectTodoStatusForSwipe,
   sortProjectTodos,
   toggleProjectTodoCompletion,
   type ProjectTodo,
@@ -108,5 +109,10 @@ describe("project todos", () => {
       "In progress",
       "Completed",
     ]);
+  });
+
+  it("maps directional swipes to workflow statuses", () => {
+    expect(projectTodoStatusForSwipe("right")).toBe("completed");
+    expect(projectTodoStatusForSwipe("left")).toBe("in-progress");
   });
 });

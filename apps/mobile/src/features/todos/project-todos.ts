@@ -14,6 +14,10 @@ export function projectTodoStatusLabel(status: ProjectTodoStatus): string {
   return "To do";
 }
 
+export function projectTodoStatusForSwipe(direction: "left" | "right"): ProjectTodoStatus {
+  return direction === "right" ? "completed" : "in-progress";
+}
+
 export interface ProjectTodoScope {
   readonly environmentId: EnvironmentId;
   readonly projectId: ProjectId;
