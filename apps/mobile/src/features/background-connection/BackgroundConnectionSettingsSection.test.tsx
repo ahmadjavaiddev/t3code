@@ -58,6 +58,10 @@ vi.mock("../../state/preferences", () => ({
   mobilePreferencesAtom: {},
   updateMobilePreferencesAtom: {},
 }));
+vi.mock("../notifications/localCompletionNotifications", () => ({
+  readLocalCompletionNotificationPermission: vi.fn(() => Promise.resolve({ type: "granted" })),
+  requestLocalCompletionNotificationPermission: vi.fn(() => Promise.resolve({ type: "granted" })),
+}));
 
 import { BackgroundConnectionSettingsSection } from "./BackgroundConnectionSettingsSection";
 

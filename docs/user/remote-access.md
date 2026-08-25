@@ -36,12 +36,16 @@ That gives you:
 
 On Android, **Keep connected in background** keeps saved environments and their thread lists
 synchronized while the phone is locked or another app is open. Enable it under **Settings** →
-**Background connection**.
+**Sync**.
 
 The setting works with direct LAN, Tailscale, and T3 Connect environments. Android shows a silent
 ongoing notification while it is enabled, and the extra network activity can increase battery and
 mobile-data use. Allow unrestricted battery use when prompted for more reliable operation while the
 screen is off.
+
+Turn on **Local completion alerts** in the same section to receive a device-generated notification
+when a synchronized thread reaches **Done**. These alerts use the existing connection and Android's
+local notification API; they do not register an EAS or T3 Connect push token.
 
 Force-stopping T3 Code prevents Android from restarting the connection until you launch the app
 again. If a Tailscale environment depends on the Tailscale Android app, that VPN must also remain

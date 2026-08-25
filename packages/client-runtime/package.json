@@ -151,6 +151,10 @@
       "types": "./src/state/threadSearch.ts",
       "default": "./src/state/threadSearch.ts"
     },
+    "./state/thread-completion-notifications": {
+      "types": "./src/state/threadCompletionNotifications.ts",
+      "default": "./src/state/threadCompletionNotifications.ts"
+    },
     "./state/vcs": {
       "types": "./src/state/vcs.ts",
       "default": "./src/state/vcs.ts"
