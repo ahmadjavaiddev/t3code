@@ -1,21 +1,18 @@
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
 import { StackActions, useNavigation } from "@react-navigation/native";
 import { SymbolView } from "../../components/AppSymbol";
-import type { EnvironmentId } from "@t3tools/contracts";
-import { useCallback } from "react";
 import { Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText as Text } from "../../components/AppText";
 import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { CloudEnvironmentRows } from "../connection/CloudEnvironmentRows";
-import { EnvironmentManager } from "../connection/EnvironmentManager";
+import { EnvironmentList } from "../connection/EnvironmentList";
 import { splitEnvironmentSections } from "../connection/environmentSections";
 import { useThemeColor } from "../../lib/useThemeColor";
 import { useRemoteConnections } from "../../state/use-remote-environment-registry";
 import {
   applyShowcaseLocalEnvironmentDisplayUrls,
-  resolveShowcaseEnvironmentUpdateDisplayUrl,
   SHOWCASE_AVAILABLE_CLOUD_ENVIRONMENTS,
   SHOWCASE_CONNECTED_CLOUD_ENVIRONMENTS,
 } from "../showcase/showcaseEnvironmentRows";
@@ -23,12 +20,7 @@ import {
 const SHOWCASE_ENABLED = process.env.EXPO_PUBLIC_SHOWCASE === "1";
 
 export function SettingsEnvironmentsRouteScreen() {
-  const {
-    connectedEnvironments,
-    onReconnectEnvironment,
-    onRemoveEnvironmentPress,
-    onUpdateEnvironment,
-  } = useRemoteConnections();
+  const { connectedEnvironments, onReconnectEnvironment } = useRemoteConnections();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const environmentSections = splitEnvironmentSections({
@@ -43,33 +35,6 @@ export function SettingsEnvironmentsRouteScreen() {
   const hasEnvironments = managedEnvironments.length > 0;
   const accentColor = useThemeColor("--color-icon-muted");
   const headerIconColor = useThemeColor("--color-icon");
-
-  const handleUpdateEnvironment = useCallback(
-    (
-      environmentId: EnvironmentId,
-      updates: { readonly label: string; readonly displayUrl: string },
-    ) => {
-      if (!SHOWCASE_ENABLED) return onUpdateEnvironment(environmentId, updates);
-      const actualEnvironment = environmentSections.localEnvironments.find(
-        (environment) => environment.environmentId === environmentId,
-      );
-      const presentedEnvironment = localEnvironments.find(
-        (environment) => environment.environmentId === environmentId,
-      );
-      return onUpdateEnvironment(environmentId, {
-        ...updates,
-        displayUrl:
-          actualEnvironment && presentedEnvironment
-            ? resolveShowcaseEnvironmentUpdateDisplayUrl({
-                actualDisplayUrl: actualEnvironment.displayUrl,
-                presentedDisplayUrl: presentedEnvironment.displayUrl,
-                submittedDisplayUrl: updates.displayUrl,
-              })
-            : updates.displayUrl,
-      });
-    },
-    [environmentSections.localEnvironments, localEnvironments, onUpdateEnvironment],
-  );
 
   return (
     <View collapsable={false} className="flex-1 bg-sheet">
@@ -109,12 +74,13 @@ export function SettingsEnvironmentsRouteScreen() {
         }}
       >
         {hasEnvironments ? (
-          <EnvironmentManager
+          <EnvironmentList
             environments={managedEnvironments}
-            managementPairingRoute="SettingsEnvironmentNew"
-            onReconnect={onReconnectEnvironment}
-            onRemove={onRemoveEnvironmentPress}
-            onUpdate={handleUpdateEnvironment}
+            onSelect={(environmentId) =>
+              navigation.dispatch(
+                StackActions.push("SettingsEnvironmentDetails", { environmentId }),
+              )
+            }
           />
         ) : (
           <View collapsable={false} className="items-center gap-3 rounded-[24px] bg-card px-6 py-8">

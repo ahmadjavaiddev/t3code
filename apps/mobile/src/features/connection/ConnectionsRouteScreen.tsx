@@ -1,5 +1,5 @@
 import { NativeHeaderToolbar } from "../../native/StackHeader";
-import { useNavigation } from "@react-navigation/native";
+import { StackActions, useNavigation } from "@react-navigation/native";
 import { SymbolView } from "../../components/AppSymbol";
 import { Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,15 +8,10 @@ import { useThemeColor } from "../../lib/useThemeColor";
 import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { AppText as Text } from "../../components/AppText";
 import { useRemoteConnections } from "../../state/use-remote-environment-registry";
-import { EnvironmentManager } from "./EnvironmentManager";
+import { EnvironmentList } from "./EnvironmentList";
 
 export function ConnectionsRouteScreen() {
-  const {
-    connectedEnvironments,
-    onReconnectEnvironment,
-    onRemoveEnvironmentPress,
-    onUpdateEnvironment,
-  } = useRemoteConnections();
+  const { connectedEnvironments } = useRemoteConnections();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const hasEnvironments = connectedEnvironments.length > 0;
@@ -57,12 +52,11 @@ export function ConnectionsRouteScreen() {
         }}
       >
         {hasEnvironments ? (
-          <EnvironmentManager
+          <EnvironmentList
             environments={connectedEnvironments}
-            managementPairingRoute="ConnectionsNew"
-            onReconnect={onReconnectEnvironment}
-            onRemove={onRemoveEnvironmentPress}
-            onUpdate={onUpdateEnvironment}
+            onSelect={(environmentId) =>
+              navigation.dispatch(StackActions.push("EnvironmentDetails", { environmentId }))
+            }
           />
         ) : (
           <View collapsable={false} className="items-center gap-3 rounded-[24px] bg-card px-6 py-8">

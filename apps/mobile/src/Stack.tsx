@@ -33,6 +33,10 @@ import { GitOverviewSheet } from "./features/threads/git/GitOverviewSheet";
 import { ThreadRouteScreen } from "./features/threads/ThreadRouteScreen";
 import { ConnectionsRouteScreen } from "./features/connection/ConnectionsRouteScreen";
 import { ConnectionsNewRouteScreen } from "./features/connection/ConnectionsNewRouteScreen";
+import {
+  RootEnvironmentDetailsRouteScreen,
+  SettingsEnvironmentDetailsRouteScreen,
+} from "./features/connection/EnvironmentDetailsRouteScreen";
 import { HomeRouteScreen } from "./features/home/HomeRouteScreen";
 import { AddProjectDestinationRoute } from "./features/projects/AddProjectDestinationRoute";
 import { AddProjectLocalRoute } from "./features/projects/AddProjectLocalRoute";
@@ -158,6 +162,13 @@ const SettingsContentStack = createNativeStackNavigator({
       linking: "environments",
       options: {
         title: "Environments",
+      },
+    }),
+    SettingsEnvironmentDetails: createNativeStackScreen({
+      screen: SettingsEnvironmentDetailsRouteScreen,
+      linking: "environments/:environmentId",
+      options: {
+        title: "Environment Details",
       },
     }),
     SettingsEnvironmentNew: createNativeStackScreen({
@@ -335,6 +346,7 @@ const WORKSPACE_OVERLAY_ROUTES = new Set([
   "ConnectOnboarding",
   "Connections",
   "ConnectionsNew",
+  "EnvironmentDetails",
   "GitBranches",
   "GitCommit",
   "GitConfirm",
@@ -633,6 +645,16 @@ export const RootStack = createNativeStackNavigator({
               sheetAllowedDetents: [0.55, 0.7],
               sheetGrabberVisible: true,
             }),
+      },
+    }),
+    EnvironmentDetails: createNativeStackScreen({
+      screen: RootEnvironmentDetailsRouteScreen,
+      linking: "connections/:environmentId",
+      options: {
+        title: "Environment Details",
+        ...(Platform.OS === "android"
+          ? { presentation: "card" as const, headerShown: false }
+          : GLASS_HEADER_OPTIONS),
       },
     }),
     ConnectionsNew: createNativeStackScreen({
