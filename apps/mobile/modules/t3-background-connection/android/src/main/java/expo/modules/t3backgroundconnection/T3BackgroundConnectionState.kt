@@ -13,6 +13,7 @@ import android.os.SystemClock
 import android.util.Log
 import java.util.concurrent.CopyOnWriteArraySet
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 internal object T3BackgroundConnectionState {
   const val TASK_NAME = "T3BackgroundConnection"
@@ -25,11 +26,13 @@ internal object T3BackgroundConnectionState {
   private const val ENABLED_KEY = "enabled"
   private const val STOP_FALLBACK_DELAY_MS = 5_000L
   private const val STABLE_RUNTIME_RESET_DELAY_MS = 60_000L
+  private const val RUNTIME_HEARTBEAT_STALE_AFTER_MS = 90_000L
 
   private val mainHandler = Handler(Looper.getMainLooper())
   private val serviceRunning = AtomicBoolean(false)
   private val runtimeReady = AtomicBoolean(false)
   private val taskStarted = AtomicBoolean(false)
+  private val lastRuntimeHeartbeatAtMs = AtomicLong(0L)
   private val statusListeners = CopyOnWriteArraySet<(Map<String, Any>) -> Unit>()
   private val stopRequestListeners = CopyOnWriteArraySet<() -> Unit>()
 
@@ -80,6 +83,7 @@ internal object T3BackgroundConnectionState {
       "enabled" to isEnabled(context),
       "serviceRunning" to serviceRunning.get(),
       "runtimeReady" to runtimeReady.get(),
+      "runtimeHealthy" to isRuntimeHealthy(),
       "batteryOptimizationIgnored" to isBatteryOptimizationIgnored(context),
     )
   }
@@ -121,6 +125,7 @@ internal object T3BackgroundConnectionState {
     if (!running) {
       runtimeReady.set(false)
       taskStarted.set(false)
+      lastRuntimeHeartbeatAtMs.set(0L)
       cancelStopFallback()
       cancelStableRuntimeReset()
     }
@@ -131,8 +136,10 @@ internal object T3BackgroundConnectionState {
     val appliedReady = ready && serviceRunning.get()
     runtimeReady.set(appliedReady)
     if (appliedReady) {
+      lastRuntimeHeartbeatAtMs.set(SystemClock.elapsedRealtime())
       scheduleStableRuntimeReset()
     } else {
+      lastRuntimeHeartbeatAtMs.set(0L)
       cancelStableRuntimeReset()
     }
     emitStatus()
@@ -140,9 +147,20 @@ internal object T3BackgroundConnectionState {
 
   fun claimTask(): Boolean = taskStarted.compareAndSet(false, true)
 
+  fun markRuntimeHeartbeat() {
+    val wasHealthy = isRuntimeHealthy()
+    if (serviceRunning.get() && runtimeReady.get()) {
+      lastRuntimeHeartbeatAtMs.set(SystemClock.elapsedRealtime())
+    }
+    if (!wasHealthy && isRuntimeHealthy()) {
+      emitStatus()
+    }
+  }
+
   fun releaseTask() {
     taskStarted.set(false)
     runtimeReady.set(false)
+    lastRuntimeHeartbeatAtMs.set(0L)
     cancelStableRuntimeReset()
     emitStatus()
   }
@@ -186,6 +204,7 @@ internal object T3BackgroundConnectionState {
     initialize(context)
     cancelStopFallback()
     runtimeReady.set(false)
+    lastRuntimeHeartbeatAtMs.set(0L)
     emitStatus()
     if (!isEnabled(context)) {
       stopService(context)
@@ -240,6 +259,15 @@ internal object T3BackgroundConnectionState {
   private fun preferences(context: Context) =
     context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
 
+  private fun isRuntimeHealthy(): Boolean =
+    T3BackgroundConnectionRecoveryPolicy.isRuntimeHealthy(
+      serviceRunning = serviceRunning.get(),
+      runtimeReady = runtimeReady.get(),
+      lastHeartbeatAtMs = lastRuntimeHeartbeatAtMs.get(),
+      nowMs = SystemClock.elapsedRealtime(),
+      staleAfterMs = RUNTIME_HEARTBEAT_STALE_AFTER_MS,
+    )
+
   private fun emitStatus() {
     val context = applicationContext ?: return
     val snapshot = status(context)
@@ -266,7 +294,7 @@ internal object T3BackgroundConnectionState {
     cancelStableRuntimeReset()
     val reset = Runnable {
       stableRuntimeReset = null
-      if (runtimeReady.get() && serviceRunning.get()) {
+      if (isRuntimeHealthy()) {
         consecutiveUnexpectedFailures = 0
       }
     }

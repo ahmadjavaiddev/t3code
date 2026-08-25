@@ -234,9 +234,11 @@ export function subscribeDynamic<TTag extends EnvironmentSubscriptionRpcTag>(
                               (reason) => reason._tag === "Fail" && isRpcClientError(reason.error),
                             );
                           if (isTransportFailure) {
-                            return Stream.fromEffect(
+                            const logged = Stream.fromEffect(
                               Effect.logWarning(
-                                "Durable RPC subscription lost its transport; waiting for the next session.",
+                                options?.resubscribe === undefined
+                                  ? "Durable RPC subscription lost its transport; waiting for the next session."
+                                  : "Durable RPC subscription lost its transport; retrying on the current session.",
                                 {
                                   cause: Cause.pretty(cause),
                                   method: tag,
@@ -244,6 +246,15 @@ export function subscribeDynamic<TTag extends EnvironmentSubscriptionRpcTag>(
                                 },
                               ),
                             ).pipe(Stream.drain);
+                            if (options?.resubscribe === undefined) {
+                              return logged;
+                            }
+                            return logged.pipe(
+                              Stream.concat(
+                                Stream.fromEffect(Effect.sleep("1 second")).pipe(Stream.drain),
+                              ),
+                              Stream.concat(subscribeToSession()),
+                            );
                           }
                           if (hasOnlyExpectedFailures && options?.onExpectedFailure !== undefined) {
                             const handled = Stream.fromEffect(

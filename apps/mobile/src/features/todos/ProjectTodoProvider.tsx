@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import { loadProjectTodos, removeProjectTodo, saveProjectTodo } from "../../persistence/imperative";
+import type { DraftComposerImageAttachment } from "../../lib/composerImages";
 import { uuidv4 } from "../../lib/uuid";
 import {
   applyProjectTodoEdit,
@@ -28,6 +29,7 @@ interface ProjectTodoContextValue {
     text: string,
     project: EnvironmentProject,
     status: ProjectTodoStatus,
+    attachments: ReadonlyArray<DraftComposerImageAttachment>,
   ) => Promise<boolean>;
   readonly toggleTodo: (todo: ProjectTodo) => Promise<void>;
   readonly updateTodo: (
@@ -35,6 +37,7 @@ interface ProjectTodoContextValue {
     text: string,
     project: EnvironmentProject | null,
     status: ProjectTodoStatus,
+    attachments: ReadonlyArray<DraftComposerImageAttachment>,
   ) => Promise<boolean>;
   readonly deleteTodo: (todo: ProjectTodo) => Promise<void>;
   readonly dismissError: () => void;
@@ -92,7 +95,12 @@ export function ProjectTodoProvider(props: PropsWithChildren) {
   );
 
   const addTodo = useCallback(
-    async (text: string, project: EnvironmentProject, status: ProjectTodoStatus) => {
+    async (
+      text: string,
+      project: EnvironmentProject,
+      status: ProjectTodoStatus,
+      attachments: ReadonlyArray<DraftComposerImageAttachment>,
+    ) => {
       const normalizedText = text.trim();
       if (!normalizedText) return false;
       const now = Date.now();
@@ -102,6 +110,7 @@ export function ProjectTodoProvider(props: PropsWithChildren) {
         projectId: project.id,
         projectTitle: project.title,
         text: normalizedText,
+        attachments,
         status,
         createdAt: now,
         updatedAt: now,
@@ -131,8 +140,15 @@ export function ProjectTodoProvider(props: PropsWithChildren) {
       text: string,
       project: EnvironmentProject | null,
       status: ProjectTodoStatus,
+      attachments: ReadonlyArray<DraftComposerImageAttachment>,
     ) => {
-      const updated = applyProjectTodoEdit(todo, { text, project, status, updatedAt: Date.now() });
+      const updated = applyProjectTodoEdit(todo, {
+        text,
+        project,
+        status,
+        attachments,
+        updatedAt: Date.now(),
+      });
       if (!updated) return false;
       setTodos((current) =>
         sortProjectTodos(

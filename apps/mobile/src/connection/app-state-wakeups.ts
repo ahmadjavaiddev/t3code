@@ -10,6 +10,7 @@ export type MobileApplicationActiveWakeup = Extract<
 export interface MobileBackgroundConnectionProtection {
   readonly serviceRunning: boolean;
   readonly runtimeReady: boolean;
+  readonly runtimeHealthy: boolean;
 }
 
 export function mobileApplicationActiveWakeup(
@@ -17,7 +18,11 @@ export function mobileApplicationActiveWakeup(
   activeAtMs: number,
   protection?: MobileBackgroundConnectionProtection,
 ): MobileApplicationActiveWakeup {
-  if (protection?.serviceRunning === true && protection.runtimeReady === true) {
+  if (
+    protection?.serviceRunning === true &&
+    protection.runtimeReady === true &&
+    protection.runtimeHealthy === true
+  ) {
     return "application-active-preserved";
   }
   return backgroundedAtMs !== null &&

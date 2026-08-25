@@ -236,7 +236,7 @@ function AndroidHomeHeader(props: HomeHeaderProps) {
               accessibilityLabel="Open tasks and notes"
               accessibilityRole="button"
               onPress={props.onOpenTodos}
-              className="size-11 items-center justify-center rounded-full bg-subtle"
+              className="size-11 items-center justify-center rounded-full bg-subtle active:opacity-60"
             >
               <SymbolView name="doc.text" size={18} tintColor={iconColor} type="monochrome" />
             </Pressable>

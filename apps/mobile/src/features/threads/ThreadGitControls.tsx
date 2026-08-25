@@ -381,24 +381,21 @@ function useThreadGitHeaderActionItems(props: ThreadGitControlsProps): ThreadGit
         menu: {
           items: [
             {
-              icon: { name: "pencil", type: "sfSymbol" },
-              label: "Rename thread",
-              onPress: props.onRenameThread,
-              type: "action",
-            },
-            {
+              description: "Track work for this project",
               icon: { name: "list.bullet.clipboard", type: "sfSymbol" },
               label: "Tasks and notes",
               onPress: props.onOpenTodos,
               type: "action",
             },
             {
+              description: "Configure scripts and project details",
               icon: { name: "gearshape", type: "sfSymbol" },
               label: "Project settings",
               onPress: props.onOpenProjectSettings,
               type: "action",
             },
             {
+              description: "Browse this project's files",
               disabled: !props.canOpenFiles,
               icon: { name: "folder", type: "sfSymbol" },
               label: "Files",
@@ -407,13 +404,26 @@ function useThreadGitHeaderActionItems(props: ThreadGitControlsProps): ThreadGit
             },
             {
               ...items.terminal.menu,
+              description: "Run commands in this project",
               icon: items.terminal.icon,
               label: "Terminal",
               type: "submenu",
             },
-            { ...items.git.menu, icon: items.git.icon, label: "Git", type: "submenu" },
+            {
+              ...items.git.menu,
+              description: "Review changes and repository status",
+              icon: items.git.icon,
+              label: "Git",
+              type: "submenu",
+            },
+            {
+              description: "Change this thread's title",
+              icon: { name: "pencil", type: "sfSymbol" },
+              label: "Rename thread",
+              onPress: props.onRenameThread,
+              type: "action",
+            },
           ],
-          title: "Thread actions",
         },
         sharesBackground: true,
         type: "menu",
@@ -479,13 +489,18 @@ export function ThreadGitControls(props: ThreadGitControlsProps) {
           icon="ellipsis"
           separateBackground
         >
-          <NativeHeaderToolbar.MenuAction icon="pencil" onPress={props.onRenameThread}>
-            <NativeHeaderToolbar.Label>Rename thread</NativeHeaderToolbar.Label>
-          </NativeHeaderToolbar.MenuAction>
-          <NativeHeaderToolbar.MenuAction icon="list.bullet.clipboard" onPress={props.onOpenTodos}>
+          <NativeHeaderToolbar.MenuAction
+            icon="list.bullet.clipboard"
+            onPress={props.onOpenTodos}
+            subtitle="Track work for this project"
+          >
             <NativeHeaderToolbar.Label>Tasks and notes</NativeHeaderToolbar.Label>
           </NativeHeaderToolbar.MenuAction>
-          <NativeHeaderToolbar.MenuAction icon="gearshape" onPress={props.onOpenProjectSettings}>
+          <NativeHeaderToolbar.MenuAction
+            icon="gearshape"
+            onPress={props.onOpenProjectSettings}
+            subtitle="Configure scripts and project details"
+          >
             <NativeHeaderToolbar.Label>Project settings</NativeHeaderToolbar.Label>
           </NativeHeaderToolbar.MenuAction>
           {props.projectScripts.length > 0 ? (
@@ -541,10 +556,18 @@ export function ThreadGitControls(props: ThreadGitControlsProps) {
             disabled={!props.canOpenFiles}
             icon="folder"
             onPress={model.openFiles}
+            subtitle="Browse this project's files"
           >
             <NativeHeaderToolbar.Label>Files</NativeHeaderToolbar.Label>
           </NativeHeaderToolbar.MenuAction>
           <ThreadGitMenu {...props} />
+          <NativeHeaderToolbar.MenuAction
+            icon="pencil"
+            onPress={props.onRenameThread}
+            subtitle="Change this thread's title"
+          >
+            <NativeHeaderToolbar.Label>Rename thread</NativeHeaderToolbar.Label>
+          </NativeHeaderToolbar.MenuAction>
         </NativeHeaderToolbar.Menu>
       ) : null}
     </NativeHeaderToolbar>

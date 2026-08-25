@@ -9,25 +9,30 @@ import ReanimatedSwipeable, {
 import { AppText as Text } from "../../components/AppText";
 import { SymbolView } from "../../components/AppSymbol";
 import { useThemeColor } from "../../lib/useThemeColor";
-import { projectTodoStatusForSwipe, type ProjectTodoStatus } from "./project-todos";
+import { projectTodoActionForSwipe, type ProjectTodoStatus } from "./project-todos";
 
 const ACTION_WIDTH = 112;
 
 export function ProjectTodoSwipeable(props: {
   readonly children: ReactNode;
   readonly status: ProjectTodoStatus;
+  readonly onSendToAgent: () => void;
   readonly onStatusChange: (status: ProjectTodoStatus) => void;
 }) {
   const methodsRef = useRef<SwipeableMethods | null>(null);
   const cardColor = useThemeColor("--color-card");
-  const { onStatusChange, status: currentStatus } = props;
-  const handleStatusChange = useCallback(
+  const { onSendToAgent, onStatusChange, status: currentStatus } = props;
+  const handleSwipe = useCallback(
     (direction: SwipeDirection) => {
-      const status = projectTodoStatusForSwipe(direction);
+      const action = projectTodoActionForSwipe(direction);
       methodsRef.current?.close();
-      if (status !== currentStatus) onStatusChange(status);
+      if (action === "send-to-agent") {
+        onSendToAgent();
+        return;
+      }
+      if (currentStatus !== "in-progress") onStatusChange("in-progress");
     },
-    [currentStatus, onStatusChange],
+    [currentStatus, onSendToAgent, onStatusChange],
   );
 
   return (
@@ -46,7 +51,7 @@ export function ProjectTodoSwipeable(props: {
       failOffsetY={[-10, 10]}
       friction={1}
       leftThreshold={ACTION_WIDTH * 0.55}
-      onSwipeableOpen={handleStatusChange}
+      onSwipeableOpen={handleSwipe}
       overshootLeft={false}
       overshootRight={false}
       renderLeftActions={() => <SwipeAction direction="right" />}
@@ -59,22 +64,24 @@ export function ProjectTodoSwipeable(props: {
 }
 
 function SwipeAction(props: { readonly direction: "left" | "right" }) {
-  const isDone = props.direction === "right";
+  const sendsToAgent = props.direction === "right";
   return (
     <View
       className={
-        isDone
-          ? "w-28 flex-1 items-center justify-center gap-1 bg-emerald-600 px-3"
+        sendsToAgent
+          ? "w-28 flex-1 items-center justify-center gap-1 bg-sky-600 px-3"
           : "w-28 flex-1 items-center justify-center gap-1 bg-amber-600 px-3"
       }
     >
       <SymbolView
-        name={isDone ? "checkmark.circle" : "clock"}
+        name={sendsToAgent ? "text.bubble" : "clock"}
         size={20}
         tintColor="#ffffff"
         type="monochrome"
       />
-      <Text className="text-xs font-t3-bold text-white">{isDone ? "Done" : "In progress"}</Text>
+      <Text className="text-center text-xs font-t3-bold text-white">
+        {sendsToAgent ? "Send to agent" : "In progress"}
+      </Text>
     </View>
   );
 }

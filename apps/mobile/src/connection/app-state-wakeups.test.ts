@@ -24,12 +24,21 @@ describe("mobileApplicationActiveWakeup", () => {
       mobileApplicationActiveWakeup(20_000, 20_000 + MOBILE_BACKGROUND_RECONNECT_AFTER_MS, {
         serviceRunning: true,
         runtimeReady: true,
+        runtimeHealthy: true,
       }),
     ).toBe("application-active-preserved");
     expect(
       mobileApplicationActiveWakeup(20_000, 20_000 + MOBILE_BACKGROUND_RECONNECT_AFTER_MS, {
         serviceRunning: true,
         runtimeReady: false,
+        runtimeHealthy: false,
+      }),
+    ).toBe("application-active-reconnect");
+    expect(
+      mobileApplicationActiveWakeup(20_000, 20_000 + MOBILE_BACKGROUND_RECONNECT_AFTER_MS, {
+        serviceRunning: true,
+        runtimeReady: true,
+        runtimeHealthy: false,
       }),
     ).toBe("application-active-reconnect");
   });

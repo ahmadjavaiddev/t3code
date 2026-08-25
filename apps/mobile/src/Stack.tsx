@@ -65,6 +65,8 @@ import { SettingsProjectGroupingRouteScreen } from "./features/settings/Settings
 import { SettingsProjectsRouteScreen } from "./features/settings/SettingsProjectsRouteScreen";
 import { UsageRouteScreen } from "./features/usage/UsageRouteScreen";
 import { ProjectTodosRouteScreen } from "./features/todos/ProjectTodosRouteScreen";
+import { ProjectTodoDetailsRouteScreen } from "./features/todos/ProjectTodoDetailsRouteScreen";
+import { TodoAgentThreadPickerRouteScreen } from "./features/todos/TodoAgentThreadPickerRouteScreen";
 import { SettingsRouteScreen } from "./features/settings/SettingsRouteScreen";
 import { ShowcaseCaptureCoordinator } from "./features/showcase/ShowcaseCaptureCoordinator";
 import {
@@ -562,6 +564,34 @@ export const RootStack = createNativeStackNavigator({
       linking: "todos",
       options: {
         title: "Tasks & notes",
+        gestureEnabled: true,
+        ...(Platform.OS === "android"
+          ? { presentation: "card" as const, headerShown: false }
+          : {
+              ...FORM_SHEET_PRESENTATION_OPTIONS,
+              sheetAllowedDetents: [0.7, 0.92],
+              sheetGrabberVisible: true,
+            }),
+      },
+    }),
+    ProjectTodoDetails: createNativeStackScreen({
+      screen: ProjectTodoDetailsRouteScreen,
+      options: {
+        title: "Task details",
+        gestureEnabled: true,
+        ...(Platform.OS === "android"
+          ? { presentation: "card" as const, headerShown: false }
+          : {
+              ...FORM_SHEET_PRESENTATION_OPTIONS,
+              sheetAllowedDetents: [0.7, 0.92],
+              sheetGrabberVisible: true,
+            }),
+      },
+    }),
+    TodoAgentThreadPicker: createNativeStackScreen({
+      screen: TodoAgentThreadPickerRouteScreen,
+      options: {
+        title: "Send to agent",
         gestureEnabled: true,
         ...(Platform.OS === "android"
           ? { presentation: "card" as const, headerShown: false }

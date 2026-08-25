@@ -91,6 +91,7 @@ function status(overrides: Partial<BackgroundConnectionStatus> = {}): Background
     enabled: false,
     serviceRunning: false,
     runtimeReady: false,
+    runtimeHealthy: false,
     batteryOptimizationIgnored: true,
     ...overrides,
   };
@@ -104,6 +105,7 @@ beforeEach(() => {
       enabled,
       serviceRunning: enabled,
       runtimeReady: enabled,
+      runtimeHealthy: enabled,
     }),
   );
   native.requestExemption.mockResolvedValue(status({ enabled: true }));
@@ -116,6 +118,7 @@ describe("BackgroundConnectionSettingsSection", () => {
         enabled: true,
         serviceRunning: true,
         runtimeReady: true,
+        runtimeHealthy: true,
         batteryOptimizationIgnored: false,
       }),
     );
@@ -143,6 +146,7 @@ describe("BackgroundConnectionSettingsSection", () => {
       enabled: true,
       serviceRunning: true,
       runtimeReady: true,
+      runtimeHealthy: true,
     });
     native.setEnabled.mockResolvedValue(status());
 

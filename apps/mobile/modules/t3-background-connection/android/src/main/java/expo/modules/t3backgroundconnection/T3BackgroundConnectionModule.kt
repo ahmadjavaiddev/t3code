@@ -93,6 +93,10 @@ class T3BackgroundConnectionModule : Module() {
       T3BackgroundConnectionState.status(context)
     }
 
+    Function("recordRuntimeHeartbeat") {
+      T3BackgroundConnectionState.markRuntimeHeartbeat()
+    }
+
     Function("acknowledgeStop") {
       val context = applicationContext()
       T3BackgroundConnectionState.acknowledgeStop(context)

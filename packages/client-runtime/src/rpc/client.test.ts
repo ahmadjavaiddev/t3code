@@ -231,6 +231,61 @@ describe("environment RPC", () => {
     }),
   );
 
+  it.effect("retries a refreshable durable subscription on the current session", () =>
+    Effect.gen(function* () {
+      const subscriptionCount = yield* Ref.make(0);
+      const events = yield* Queue.unbounded<RelayClientInstallProgressEvent>();
+      const client = {
+        [WS_METHODS.subscribeTerminalEvents]: () =>
+          Stream.unwrap(
+            Ref.getAndUpdate(subscriptionCount, (count) => count + 1).pipe(
+              Effect.map((count) =>
+                count === 0
+                  ? Stream.fail(
+                      new RpcClientError.RpcClientError({
+                        reason: new RpcClientError.RpcClientDefect({
+                          message: "socket closing",
+                          cause: new Error("socket closing"),
+                        }),
+                      }),
+                    )
+                  : Stream.fromQueue(events),
+              ),
+            ),
+          ),
+      } as unknown as WsRpcProtocolClient;
+      const { activeSession, supervisor } = yield* makeHarness();
+      const resubscriptions = yield* Queue.unbounded<void>();
+
+      yield* SubscriptionRef.set(activeSession, Option.some(session(client)));
+      const subscriptionFiber = yield* subscribe(
+        WS_METHODS.subscribeTerminalEvents,
+        {},
+        {
+          resubscribe: Stream.fromQueue(resubscriptions),
+        },
+      ).pipe(
+        Stream.runDrain,
+        Effect.provideService(EnvironmentSupervisor.EnvironmentSupervisor, supervisor),
+        Effect.forkChild,
+      );
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        if ((yield* Ref.get(subscriptionCount)) >= 1) break;
+        yield* Effect.yieldNow;
+      }
+
+      expect(yield* Ref.get(subscriptionCount)).toBe(1);
+      yield* TestClock.adjust("1 second");
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        if ((yield* Ref.get(subscriptionCount)) >= 2) break;
+        yield* Effect.yieldNow;
+      }
+      yield* Fiber.interrupt(subscriptionFiber);
+
+      expect(yield* Ref.get(subscriptionCount)).toBe(2);
+    }),
+  );
+
   it.effect("surfaces domain subscription failures without reconnecting", () =>
     Effect.gen(function* () {
       const domainError = new Error("terminal subscription rejected");

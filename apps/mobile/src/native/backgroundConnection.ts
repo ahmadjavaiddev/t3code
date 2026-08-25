@@ -5,6 +5,7 @@ export interface BackgroundConnectionStatus {
   readonly enabled: boolean;
   readonly serviceRunning: boolean;
   readonly runtimeReady: boolean;
+  readonly runtimeHealthy: boolean;
   readonly batteryOptimizationIgnored: boolean;
 }
 
@@ -19,6 +20,7 @@ declare class BackgroundConnectionNativeModule extends NativeModule<BackgroundCo
   readonly ensureStarted?: () => BackgroundConnectionStatus;
   readonly requestBatteryOptimizationExemption?: () => Promise<BackgroundConnectionStatus>;
   readonly setRuntimeReady?: (ready: boolean) => BackgroundConnectionStatus;
+  readonly recordRuntimeHeartbeat?: () => void;
   readonly acknowledgeStop?: () => BackgroundConnectionStatus;
 }
 
@@ -31,6 +33,7 @@ const UNSUPPORTED_STATUS: BackgroundConnectionStatus = {
   enabled: false,
   serviceRunning: false,
   runtimeReady: false,
+  runtimeHealthy: false,
   batteryOptimizationIgnored: false,
 };
 
@@ -49,11 +52,20 @@ function getNativeModule(): BackgroundConnectionNativeModule | null {
 
 function normalizeStatus(status: BackgroundConnectionStatus | null | undefined) {
   if (status?.supported !== true) return UNSUPPORTED_STATUS;
+  const serviceRunning = status.serviceRunning === true;
+  const runtimeReady = status.runtimeReady === true;
   return {
     supported: true,
     enabled: status.enabled === true,
-    serviceRunning: status.serviceRunning === true,
-    runtimeReady: status.runtimeReady === true,
+    serviceRunning,
+    runtimeReady,
+    // Preview binaries published before runtime heartbeats do not include this
+    // field. Preserve their previous ready-state behavior until the next native
+    // build installs heartbeat-aware recovery.
+    runtimeHealthy:
+      status.runtimeHealthy === undefined
+        ? serviceRunning && runtimeReady
+        : status.runtimeHealthy === true,
     batteryOptimizationIgnored: status.batteryOptimizationIgnored === true,
   } satisfies BackgroundConnectionStatus;
 }
@@ -101,6 +113,14 @@ export function setBackgroundConnectionRuntimeReady(ready: boolean): BackgroundC
     return normalizeStatus(getNativeModule()?.setRuntimeReady?.(ready));
   } catch {
     return getBackgroundConnectionStatus();
+  }
+}
+
+export function recordBackgroundConnectionRuntimeHeartbeat(): void {
+  try {
+    getNativeModule()?.recordRuntimeHeartbeat?.();
+  } catch {
+    // Heartbeats are advisory; connection recovery remains authoritative.
   }
 }
 

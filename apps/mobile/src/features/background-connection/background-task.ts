@@ -3,12 +3,14 @@ import {
   acknowledgeBackgroundConnectionStop,
   addBackgroundConnectionStopRequestListener,
   getBackgroundConnectionStatus,
+  recordBackgroundConnectionRuntimeHeartbeat,
   setBackgroundConnectionRuntimeReady,
 } from "../../native/backgroundConnection";
 import { appAtomRegistry } from "../../state/atom-registry";
 import { acquireBackgroundConnectionRoot } from "./background-root";
 
 let activeTask: Promise<void> | null = null;
+const RUNTIME_HEARTBEAT_INTERVAL_MS = 15_000;
 
 function bestEffortCleanup(label: string, cleanup: (() => void) | null): void {
   if (cleanup === null) {
@@ -41,6 +43,7 @@ async function runTask(): Promise<void> {
   }
   let relayAuth: ReturnType<typeof startBackgroundManagedRelayAuth> | null = null;
   let releaseRoot: (() => void) | null = null;
+  let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
   try {
     if (hasStopBeenRequested) {
@@ -49,12 +52,20 @@ async function runTask(): Promise<void> {
     relayAuth = startBackgroundManagedRelayAuth();
     releaseRoot = acquireBackgroundConnectionRoot(appAtomRegistry);
     setBackgroundConnectionRuntimeReady(true);
+    recordBackgroundConnectionRuntimeHeartbeat();
+    heartbeatInterval = setInterval(
+      recordBackgroundConnectionRuntimeHeartbeat,
+      RUNTIME_HEARTBEAT_INTERVAL_MS,
+    );
     await stopRequested;
   } catch (error) {
     console.error("[background-connection] headless runtime failed", error);
     // Normal completion lets native release React Native's wake lock and use
     // its bounded exponential restart ladder for bootstrap defects.
   } finally {
+    if (heartbeatInterval !== null) {
+      clearInterval(heartbeatInterval);
+    }
     bestEffortCleanup("root", releaseRoot);
     bestEffortCleanup("relay authentication", () => relayAuth?.stop());
     bestEffortCleanup("stop listener", () => stopSubscription.remove());

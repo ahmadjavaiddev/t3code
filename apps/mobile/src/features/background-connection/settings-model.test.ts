@@ -11,6 +11,7 @@ const status = (overrides: Partial<BackgroundConnectionStatus>): BackgroundConne
   enabled: true,
   serviceRunning: true,
   runtimeReady: true,
+  runtimeHealthy: true,
   batteryOptimizationIgnored: true,
   ...overrides,
 });
@@ -23,6 +24,12 @@ describe("backgroundConnectionStatusLabel", () => {
   it("reports startup until both native service and JavaScript are ready", () => {
     expect(backgroundConnectionStatusLabel(status({ runtimeReady: false }))).toBe("Starting");
     expect(backgroundConnectionStatusLabel(status({ serviceRunning: false }))).toBe("Starting");
+  });
+
+  it("reports a ready service whose JavaScript heartbeat stopped", () => {
+    expect(backgroundConnectionStatusLabel(status({ runtimeHealthy: false }))).toBe(
+      "Connection stalled",
+    );
   });
 
   it("makes degraded battery protection explicit", () => {

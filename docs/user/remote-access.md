@@ -38,10 +38,19 @@ On Android, **Keep connected in background** keeps saved environments and their 
 synchronized while the phone is locked or another app is open. Enable it under **Settings** →
 **Sync**.
 
+Enable **Sync Working Threads** when you also want message updates for threads that are currently
+starting or running. The background connection always retains the lighter thread-list subscriptions;
+the separate working-thread setting controls the more expensive message subscriptions.
+
 The setting works with direct LAN, Tailscale, and T3 Connect environments. Android shows a silent
 ongoing notification while it is enabled, and the extra network activity can increase battery and
 mobile-data use. Allow unrestricted battery use when prompted for more reliable operation while the
 screen is off.
+
+The Sync section reports **Connection stalled** if the Android service is present but its JavaScript
+runtime has stopped making progress. Returning to the app then replaces the stale connection and
+refreshes its subscriptions. Durable background subscriptions also retry without waiting for the app
+to be reopened when only an individual stream is interrupted.
 
 Turn on **Local completion alerts** in the same section to receive a device-generated notification
 when a synchronized thread reaches **Done**. These alerts use the existing connection and Android's

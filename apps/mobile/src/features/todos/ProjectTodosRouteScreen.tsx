@@ -1,10 +1,10 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { LegendList, type LegendListRenderItemProps } from "@legendapp/list/react-native";
 import { useNavigation, type StaticScreenProps } from "@react-navigation/native";
-import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { AsyncResult } from "effect/unstable/reactivity";
-import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Platform, Pressable, View } from "react-native";
 import { KeyboardController, KeyboardStickyView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -12,25 +12,55 @@ import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { AppText as Text } from "../../components/AppText";
 import { SymbolView } from "../../components/AppSymbol";
 import { EmptyState } from "../../components/EmptyState";
+import { pickComposerImages, type DraftComposerImageAttachment } from "../../lib/composerImages";
 import { useThemeColor } from "../../lib/useThemeColor";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { useProjects } from "../../state/entities";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
+import {
+  appendComposerDraftAttachments,
+  clearComposerDraft,
+  isComposerDraftEmpty,
+  loadComposerDraftSnapshot,
+  removeComposerDraftAttachment,
+  replaceComposerDraftAttachments,
+  setComposerDraftText,
+} from "../../state/use-composer-drafts";
 import { ProjectTodoComposer } from "./ProjectTodoComposer";
 import { useProjectTodos } from "./ProjectTodoProvider";
 import { ProjectTodoSwipeable } from "./ProjectTodoSwipeable";
 import {
   projectTodoScopeKey,
+  projectTodoSections,
   projectTodoStatusLabel,
   projectTodosForScope,
+  projectTodoCreateComposerDraftKey,
+  projectTodoEditComposerDraftKey,
   type ProjectTodo,
   type ProjectTodoStatus,
 } from "./project-todos";
 
 type ProjectTodosRouteProps = StaticScreenProps<{
   readonly environmentId?: string;
+  readonly editTodoId?: string;
   readonly projectId?: string;
 }>;
+
+type ProjectTodoListItem =
+  | {
+      readonly kind: "section";
+      readonly key: string;
+      readonly first: boolean;
+      readonly title: string;
+    }
+  | {
+      readonly kind: "todo";
+      readonly key: string;
+      readonly first: boolean;
+      readonly last: boolean;
+      readonly projectTitle: string;
+      readonly todo: ProjectTodo;
+    };
 
 export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
   const navigation = useNavigation();
@@ -48,10 +78,15 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
   });
   const [composerOpen, setComposerOpen] = useState(false);
   const [editingTodo, setEditingTodo] = useState<ProjectTodo | null>(null);
+  const [composerDraftKey, setComposerDraftKey] = useState<string | null>(null);
   const [composerDraft, setComposerDraft] = useState("");
+  const [composerAttachments, setComposerAttachments] = useState<
+    ReadonlyArray<DraftComposerImageAttachment>
+  >([]);
   const [composerProjectKey, setComposerProjectKey] = useState<string | null>(null);
   const [composerStatus, setComposerStatus] = useState<ProjectTodoStatus>("todo");
   const [composerSubmitting, setComposerSubmitting] = useState(false);
+  const handledEditTodoIdRef = useRef<string | null>(null);
 
   const routeEnvironmentId = props.route.params?.environmentId ?? null;
   const routeProjectId = props.route.params?.projectId ?? null;
@@ -110,9 +145,29 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
     () => (routeScope ? projectTodosForScope(todoStore.todos, routeScope) : todoStore.todos),
     [routeScope, todoStore.todos],
   );
-  const todoItems = visibleTodos.filter((todo) => todo.status === "todo");
-  const inProgressItems = visibleTodos.filter((todo) => todo.status === "in-progress");
-  const completedItems = visibleTodos.filter((todo) => todo.status === "completed");
+  const todoSections = useMemo(() => projectTodoSections(visibleTodos), [visibleTodos]);
+  const todoListItems = useMemo<ReadonlyArray<ProjectTodoListItem>>(() => {
+    const projectTitles = new Map(
+      projects.map((project) => [projectTodoScopeKey(project), project.title] as const),
+    );
+    const populatedSections = todoSections.filter((section) => section.todos.length > 0);
+    return populatedSections.flatMap((section, sectionIndex) => [
+      {
+        kind: "section" as const,
+        key: `section:${section.status}`,
+        first: sectionIndex === 0,
+        title: section.title,
+      },
+      ...section.todos.map((todo, index) => ({
+        kind: "todo" as const,
+        key: todo.id,
+        first: index === 0,
+        last: index === section.todos.length - 1,
+        projectTitle: projectTitles.get(projectTodoScopeKey(todo)) ?? todo.projectTitle,
+        todo,
+      })),
+    ]);
+  }, [projects, todoSections]);
   const canSubmitComposer =
     composerDraft.trim().length > 0 && (editingTodo !== null || composerProject !== null);
 
@@ -120,27 +175,80 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
     void KeyboardController.dismiss({ animated: true });
     setComposerOpen(false);
     setEditingTodo(null);
+    setComposerDraftKey(null);
     setComposerSubmitting(false);
   };
 
-  const openCreateComposer = () => {
+  const openCreateComposer = async () => {
     if (!selectedProject) return;
+    const draftKey = projectTodoCreateComposerDraftKey({
+      environmentId: selectedProject.environmentId,
+      projectId: selectedProject.id,
+    });
+    const draft = await loadComposerDraftSnapshot(draftKey);
     setEditingTodo(null);
-    setComposerDraft("");
+    setComposerDraftKey(draftKey);
+    setComposerDraft(draft.text);
+    setComposerAttachments(draft.attachments);
     setComposerProjectKey(projectTodoScopeKey(selectedProject));
     setComposerStatus("todo");
     setComposerOpen(true);
   };
 
-  const openEditComposer = (todo: ProjectTodo) => {
+  const openEditComposer = async (todo: ProjectTodo) => {
+    const draftKey = projectTodoEditComposerDraftKey(todo);
+    const draft = await loadComposerDraftSnapshot(draftKey);
+    const hasDraft = !isComposerDraftEmpty(draft);
+    if (!hasDraft) {
+      setComposerDraftText(draftKey, todo.text);
+      replaceComposerDraftAttachments(draftKey, todo.attachments);
+    }
     setEditingTodo(todo);
-    setComposerDraft(todo.text);
+    setComposerDraftKey(draftKey);
+    setComposerDraft(hasDraft ? draft.text : todo.text);
+    setComposerAttachments(hasDraft ? draft.attachments : todo.attachments);
     setComposerProjectKey(projectTodoScopeKey(todo));
     setComposerStatus(todo.status);
     setComposerOpen(true);
   };
 
-  const selectComposerProject = (projectKey: string) => {
+  const editTodoId = props.route.params?.editTodoId;
+  useEffect(() => {
+    if (!editTodoId) {
+      handledEditTodoIdRef.current = null;
+      return;
+    }
+    if (todoStore.isLoading || handledEditTodoIdRef.current === editTodoId) return;
+
+    handledEditTodoIdRef.current = editTodoId;
+    navigation.setParams({ editTodoId: undefined });
+    const todo = todoStore.todos.find((candidate) => candidate.id === editTodoId);
+    if (todo) void openEditComposer(todo);
+  }, [editTodoId, navigation, todoStore.isLoading, todoStore.todos]);
+
+  const selectComposerProject = async (projectKey: string) => {
+    const nextProject = sortedProjects.find(
+      (project) => projectTodoScopeKey(project) === projectKey,
+    );
+    if (!nextProject) return;
+    if (!editingTodo) {
+      const nextDraftKey = projectTodoCreateComposerDraftKey({
+        environmentId: nextProject.environmentId,
+        projectId: nextProject.id,
+      });
+      const nextDraft = await loadComposerDraftSnapshot(nextDraftKey);
+      if (
+        isComposerDraftEmpty(nextDraft) &&
+        (composerDraft.trim().length > 0 || composerAttachments.length > 0)
+      ) {
+        setComposerDraftText(nextDraftKey, composerDraft);
+        replaceComposerDraftAttachments(nextDraftKey, composerAttachments);
+      } else {
+        setComposerDraft(nextDraft.text);
+        setComposerAttachments(nextDraft.attachments);
+      }
+      setComposerDraftKey(nextDraftKey);
+    }
     setComposerProjectKey(projectKey);
     if (editingTodo || routeScope) return;
     setSelectedProjectKey(projectKey);
@@ -151,18 +259,94 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
     if (!canSubmitComposer || composerSubmitting) return;
     setComposerSubmitting(true);
     const saved = editingTodo
-      ? await todoStore.updateTodo(editingTodo, composerDraft, composerProject, composerStatus)
+      ? await todoStore.updateTodo(
+          editingTodo,
+          composerDraft,
+          composerProject,
+          composerStatus,
+          composerAttachments,
+        )
       : composerProject
-        ? await todoStore.addTodo(composerDraft, composerProject, composerStatus)
+        ? await todoStore.addTodo(
+            composerDraft,
+            composerProject,
+            composerStatus,
+            composerAttachments,
+          )
         : false;
-    if (saved) closeComposer();
-    else setComposerSubmitting(false);
+    if (saved) {
+      if (composerDraftKey) clearComposerDraft(composerDraftKey);
+      closeComposer();
+    } else setComposerSubmitting(false);
   };
 
-  const changeTodoStatus = async (todo: ProjectTodo, status: ProjectTodoStatus) => {
-    if (todo.status === status) return;
-    await todoStore.updateTodo(todo, todo.text, null, status);
+  const changeTodoStatus = useCallback(
+    async (todo: ProjectTodo, status: ProjectTodoStatus) => {
+      if (todo.status === status) return;
+      await todoStore.updateTodo(todo, todo.text, null, status, todo.attachments);
+    },
+    [todoStore.updateTodo],
+  );
+
+  const sendTodoToAgent = useCallback(
+    (todo: ProjectTodo) => {
+      navigation.navigate("TodoAgentThreadPicker", { todoId: todo.id });
+    },
+    [navigation],
+  );
+
+  const openTodoDetails = useCallback(
+    (todo: ProjectTodo) => {
+      navigation.navigate("ProjectTodoDetails", {
+        todoId: todo.id,
+        environmentId: routeEnvironmentId ?? undefined,
+        projectId: routeProjectId ?? undefined,
+      });
+    },
+    [navigation, routeEnvironmentId, routeProjectId],
+  );
+
+  const addComposerImages = async () => {
+    const result = await pickComposerImages({ existingCount: composerAttachments.length });
+    if (result.images.length > 0) {
+      setComposerAttachments((current) => [...current, ...result.images]);
+      if (composerDraftKey) appendComposerDraftAttachments(composerDraftKey, result.images);
+    }
+    if (result.error) {
+      Alert.alert("Could not add image", result.error);
+    }
   };
+
+  const renderTodoListItem = useCallback(
+    ({ item }: LegendListRenderItemProps<ProjectTodoListItem>) => {
+      if (item.kind === "section") {
+        return (
+          <Text
+            className={`${item.first ? "" : "mt-6"} mb-2 px-1 text-sm font-t3-bold text-foreground-muted`}
+          >
+            {item.title}
+          </Text>
+        );
+      }
+
+      return (
+        <View
+          className={`overflow-hidden border-x border-border bg-card ${item.first ? "rounded-t-[22px] border-t" : ""} ${item.last ? "rounded-b-[22px] border-b" : ""}`}
+        >
+          <TodoRow
+            first={item.first}
+            todo={item.todo}
+            projectTitle={item.projectTitle}
+            onSendToAgent={sendTodoToAgent}
+            onStatusChange={changeTodoStatus}
+            onToggle={todoStore.toggleTodo}
+            onView={openTodoDetails}
+          />
+        </View>
+      );
+    },
+    [changeTodoStatus, openTodoDetails, sendTodoToAgent, todoStore.toggleTodo],
+  );
 
   return (
     <View className="flex-1 bg-sheet">
@@ -173,90 +357,68 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
         <AndroidScreenHeader title="Tasks & notes" onBack={() => navigation.goBack()} />
       ) : null}
 
-      <ScrollView
+      <LegendList
+        className="flex-1"
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="gap-6 px-5 pt-4"
-        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 18) + 92 }}
+        contentContainerStyle={{
+          paddingBottom: Math.max(insets.bottom, 18) + 92,
+          paddingHorizontal: 20,
+          paddingTop: 16,
+        }}
+        data={todoStore.isLoading ? [] : todoListItems}
+        drawDistance={300}
+        estimatedItemSize={112}
+        getItemType={(item) => item.kind}
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {todoStore.error ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={todoStore.dismissError}
-            className="flex-row items-center gap-3 rounded-2xl border border-border bg-subtle p-4"
-          >
-            <SymbolView
-              name="exclamationmark.triangle"
-              size={20}
-              tintColor={dangerColor}
-              type="monochrome"
+        keyExtractor={(item) => item.key}
+        ListEmptyComponent={
+          todoStore.isLoading ? (
+            <View className="items-center gap-3 py-10">
+              <ActivityIndicator />
+              <Text className="text-sm text-foreground-muted">Loading tasks…</Text>
+            </View>
+          ) : (
+            <EmptyState
+              variant="plain"
+              title={
+                routeScope
+                  ? `No tasks for ${scopedProject?.title ?? "this project"}`
+                  : "No tasks yet"
+              }
+              detail="Tap the compose button to add a task or note."
             />
-            <Text className="flex-1 text-sm text-danger-foreground">
-              Tasks could not be saved. Tap to dismiss and try again.
-            </Text>
-          </Pressable>
-        ) : null}
-
-        {todoStore.isLoading ? (
-          <View className="items-center gap-3 py-10">
-            <ActivityIndicator />
-            <Text className="text-sm text-foreground-muted">Loading tasks…</Text>
-          </View>
-        ) : visibleTodos.length === 0 ? (
-          <EmptyState
-            variant="plain"
-            title={
-              routeScope ? `No tasks for ${scopedProject?.title ?? "this project"}` : "No tasks yet"
-            }
-            detail="Tap the compose button to add a task or note."
-          />
-        ) : (
-          <View className="gap-6">
-            {todoItems.length > 0 ? (
-              <TodoSection
-                title="To do"
-                todos={todoItems}
-                projects={projects}
-                onDelete={todoStore.deleteTodo}
-                onEdit={openEditComposer}
-                onStatusChange={changeTodoStatus}
-                onToggle={todoStore.toggleTodo}
+          )
+        }
+        ListHeaderComponent={
+          todoStore.error ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={todoStore.dismissError}
+              className="mb-6 flex-row items-center gap-3 rounded-2xl border border-border bg-subtle p-4"
+            >
+              <SymbolView
+                name="exclamationmark.triangle"
+                size={20}
+                tintColor={dangerColor}
+                type="monochrome"
               />
-            ) : null}
-            {inProgressItems.length > 0 ? (
-              <TodoSection
-                title="In progress"
-                todos={inProgressItems}
-                projects={projects}
-                onDelete={todoStore.deleteTodo}
-                onEdit={openEditComposer}
-                onStatusChange={changeTodoStatus}
-                onToggle={todoStore.toggleTodo}
-              />
-            ) : null}
-            {completedItems.length > 0 ? (
-              <TodoSection
-                title="Completed"
-                todos={completedItems}
-                projects={projects}
-                onDelete={todoStore.deleteTodo}
-                onEdit={openEditComposer}
-                onStatusChange={changeTodoStatus}
-                onToggle={todoStore.toggleTodo}
-              />
-            ) : null}
-          </View>
-        )}
-      </ScrollView>
+              <Text className="flex-1 text-sm text-danger-foreground">
+                Tasks could not be saved. Tap to dismiss and try again.
+              </Text>
+            </Pressable>
+          ) : null
+        }
+        renderItem={renderTodoListItem}
+        showsVerticalScrollIndicator={false}
+      />
 
       {!composerOpen ? (
         <Pressable
           accessibilityLabel="Add task or note"
           accessibilityRole="button"
           disabled={selectedProject === null}
-          onPress={openCreateComposer}
+          onPress={() => void openCreateComposer()}
           className="absolute right-5 size-14 items-center justify-center rounded-full bg-primary shadow-lg disabled:opacity-45"
           style={{ bottom: Math.max(insets.bottom, 16) + 16 }}
         >
@@ -282,6 +444,7 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
             style={{ zIndex: 20 }}
           >
             <ProjectTodoComposer
+              attachments={composerAttachments}
               canSubmit={canSubmitComposer}
               isEditing={editingTodo !== null}
               project={composerProject}
@@ -291,10 +454,20 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
               status={composerStatus}
               submitting={composerSubmitting}
               text={composerDraft}
-              onChangeProject={selectComposerProject}
+              onAddImages={() => void addComposerImages()}
+              onChangeProject={(projectKey) => void selectComposerProject(projectKey)}
               onChangeStatus={setComposerStatus}
-              onChangeText={setComposerDraft}
+              onChangeText={(text) => {
+                setComposerDraft(text);
+                if (composerDraftKey) setComposerDraftText(composerDraftKey, text);
+              }}
               onClose={closeComposer}
+              onRemoveImage={(imageId) => {
+                setComposerAttachments((current) =>
+                  current.filter((attachment) => attachment.id !== imageId),
+                );
+                if (composerDraftKey) removeComposerDraftAttachment(composerDraftKey, imageId);
+              }}
               onSubmit={() => void submitComposer()}
             />
           </KeyboardStickyView>
@@ -330,66 +503,26 @@ function TodoStatusBadge(props: { readonly status: ProjectTodoStatus }) {
   );
 }
 
-function TodoSection(props: {
-  readonly title: string;
-  readonly todos: ReadonlyArray<ProjectTodo>;
-  readonly projects: ReadonlyArray<EnvironmentProject>;
-  readonly onToggle: (todo: ProjectTodo) => Promise<void>;
-  readonly onDelete: (todo: ProjectTodo) => Promise<void>;
-  readonly onEdit: (todo: ProjectTodo) => void;
-  readonly onStatusChange: (todo: ProjectTodo, status: ProjectTodoStatus) => Promise<void>;
-}) {
-  return (
-    <View className="gap-2">
-      <Text className="px-1 text-sm font-t3-bold text-foreground-muted">{props.title}</Text>
-      <View className="overflow-hidden rounded-[22px] border border-border bg-card">
-        {props.todos.map((todo, index) => (
-          <TodoRow
-            key={todo.id}
-            first={index === 0}
-            todo={todo}
-            projectTitle={
-              props.projects.find(
-                (project) =>
-                  project.environmentId === todo.environmentId && project.id === todo.projectId,
-              )?.title ?? todo.projectTitle
-            }
-            onDelete={props.onDelete}
-            onEdit={props.onEdit}
-            onStatusChange={props.onStatusChange}
-            onToggle={props.onToggle}
-          />
-        ))}
-      </View>
-    </View>
-  );
-}
-
 function TodoRow(props: {
   readonly todo: ProjectTodo;
   readonly projectTitle: string;
   readonly first: boolean;
   readonly onToggle: (todo: ProjectTodo) => Promise<void>;
-  readonly onDelete: (todo: ProjectTodo) => Promise<void>;
-  readonly onEdit: (todo: ProjectTodo) => void;
+  readonly onSendToAgent: (todo: ProjectTodo) => void;
   readonly onStatusChange: (todo: ProjectTodo, status: ProjectTodoStatus) => Promise<void>;
+  readonly onView: (todo: ProjectTodo) => void;
 }) {
   const iconColor = useThemeColor("--color-icon");
   const mutedColor = useThemeColor("--color-foreground-muted");
-  const confirmDelete = () => {
-    Alert.alert("Delete this task?", props.todo.text, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => void props.onDelete(props.todo) },
-    ]);
-  };
 
   return (
     <ProjectTodoSwipeable
       status={props.todo.status}
+      onSendToAgent={() => props.onSendToAgent(props.todo)}
       onStatusChange={(status) => void props.onStatusChange(props.todo, status)}
     >
       <View
-        className={`flex-row items-start gap-3 bg-card p-4 ${props.first ? "" : "border-t border-border"}`}
+        className={`flex-row items-start gap-3 overflow-hidden bg-card p-4 ${props.first ? "" : "border-t border-border"}`}
       >
         <Pressable
           accessibilityLabel={
@@ -402,20 +535,26 @@ function TodoRow(props: {
           className="pt-0.5"
         >
           <SymbolView
-            name={
-              props.todo.status === "completed"
-                ? "checkmark.circle"
-                : props.todo.status === "in-progress"
-                  ? "clock"
-                  : "circle"
-            }
+            name={props.todo.status === "completed" ? "checkmark.circle" : "circle"}
             size={22}
             tintColor={props.todo.status === "completed" ? iconColor : mutedColor}
             type="monochrome"
           />
         </Pressable>
-        <View className="min-w-0 flex-1 gap-1">
+        <Pressable
+          accessibilityHint="Opens the full task text, project, status, and images"
+          accessibilityLabel={`View task details: ${props.todo.text}${
+            props.todo.attachments.length > 0
+              ? `, ${props.todo.attachments.length} attachment${props.todo.attachments.length === 1 ? "" : "s"}`
+              : ""
+          }`}
+          accessibilityRole="button"
+          className="min-w-0 flex-1 gap-1"
+          onPress={() => props.onView(props.todo)}
+        >
           <Text
+            ellipsizeMode="tail"
+            numberOfLines={3}
             className={
               props.todo.status === "completed"
                 ? "text-base leading-normal text-foreground-muted line-through"
@@ -426,28 +565,19 @@ function TodoRow(props: {
           </Text>
           <View className="flex-row items-center gap-2">
             <TodoStatusBadge status={props.todo.status} />
-            <Text className="min-w-0 flex-1 text-xs text-foreground-muted" numberOfLines={1}>
+            <Text className="min-w-0 shrink text-xs text-foreground-muted" numberOfLines={1}>
               {props.projectTitle}
             </Text>
+            {props.todo.attachments.length > 0 ? (
+              <View className="shrink-0 flex-row items-center gap-1">
+                <SymbolView name="photo" size={12} tintColor={mutedColor} type="monochrome" />
+                <Text className="text-2xs font-t3-medium text-foreground-muted">
+                  {props.todo.attachments.length} attachment
+                  {props.todo.attachments.length === 1 ? "" : "s"}
+                </Text>
+              </View>
+            ) : null}
           </View>
-        </View>
-        <Pressable
-          accessibilityLabel="Edit task"
-          accessibilityRole="button"
-          hitSlop={8}
-          onPress={() => props.onEdit(props.todo)}
-          className="p-1"
-        >
-          <SymbolView name="pencil" size={18} tintColor={mutedColor} type="monochrome" />
-        </Pressable>
-        <Pressable
-          accessibilityLabel="Delete task"
-          accessibilityRole="button"
-          hitSlop={8}
-          onPress={confirmDelete}
-          className="p-1"
-        >
-          <SymbolView name="trash" size={18} tintColor={mutedColor} type="monochrome" />
         </Pressable>
       </View>
     </ProjectTodoSwipeable>

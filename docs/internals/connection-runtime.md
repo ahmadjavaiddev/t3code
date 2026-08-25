@@ -80,6 +80,10 @@ Wakeup handling differs by phase, in [supervisor.ts][supervisor]:
   mobile's `application-active-probe`) rather than reconnecting; a healthy
   session survives foregrounding. `application-active-reconnect` skips the probe
   and replaces the lease outright.
+- Application activation also refreshes durable shell and thread subscriptions.
+  Same-session refreshes resume from the current sequence without demoting
+  already-live data to `synchronizing`; a replacement session still exposes
+  synchronization until its authoritative fence arrives.
 
 The UI derives `available`, `offline`, `connecting`, `reconnecting`,
 `connected`, and `error` from supervisor state plus explicit data-sync state.
@@ -98,8 +102,10 @@ Finite requests, durable subscriptions, and commands are separate APIs:
 - Subscription atoms switch to replacement sessions.
 - Subscription failure handling in [rpc/client.ts][client] distinguishes two
   cases. A transport failure (`isTransportFailure`: every failure is an RPC
-  client error) ends the inner subscription without resubscribing, so the outer
-  stream waits for the supervisor to supply a replacement session. A handled
+  client error) waits for the supervisor to supply a replacement session when
+  the subscription has no refresh stream. Shell and thread subscriptions do
+  have one, so they retry against the current session after a bounded delay;
+  an outer session replacement still cancels that retry immediately. A handled
   domain failure runs `onExpectedFailure` and, when
   `retryExpectedFailureAfter` is set, sleeps and resubscribes on the **same**
   session. A healthy transport is never torn down for a domain failure.
@@ -173,6 +179,12 @@ The service uses a silent ongoing notification, a Headless JS CPU wake lock,
 and a best-effort Wi-Fi lock. It restores an enabled preference after normal
 process reclamation, package replacement, or reboot. Android force-stop remains
 absolute until the user launches the app again.
+
+The Headless JS task records a native heartbeat while it owns the background
+root. Native status treats `serviceRunning` and `runtimeReady` as startup facts,
+not sufficient health evidence: the heartbeat must also be recent. A stale
+heartbeat prevents a resume from being classified as preserved, forcing the
+connection supervisor through its replacement path when the Activity returns.
 
 ## Verification
 

@@ -16,6 +16,7 @@ const runningStatus = {
   enabled: true,
   serviceRunning: true,
   runtimeReady: true,
+  runtimeHealthy: true,
   batteryOptimizationIgnored: true,
 } as const;
 
@@ -34,6 +35,7 @@ describe("backgroundConnection native bridge", () => {
       enabled: false,
       serviceRunning: false,
       runtimeReady: false,
+      runtimeHealthy: false,
       batteryOptimizationIgnored: false,
     });
     await expect(bridge.setBackgroundConnectionEnabled(true)).resolves.toMatchObject({
@@ -52,6 +54,7 @@ describe("backgroundConnection native bridge", () => {
     const ensureStarted = vi.fn(() => runningStatus);
     const requestBatteryOptimizationExemption = vi.fn(async () => runningStatus);
     const setRuntimeReady = vi.fn(() => runningStatus);
+    const recordRuntimeHeartbeat = vi.fn();
     const acknowledgeStop = vi.fn(() => runningStatus);
     expoMocks.requireOptionalNativeModule.mockReturnValue({
       getStatus: () => runningStatus,
@@ -59,6 +62,7 @@ describe("backgroundConnection native bridge", () => {
       ensureStarted,
       requestBatteryOptimizationExemption,
       setRuntimeReady,
+      recordRuntimeHeartbeat,
       acknowledgeStop,
     });
     const bridge = await import("./backgroundConnection");
@@ -70,12 +74,24 @@ describe("backgroundConnection native bridge", () => {
     );
     expect(bridge.ensureBackgroundConnectionStarted()).toEqual(runningStatus);
     expect(bridge.setBackgroundConnectionRuntimeReady(true)).toEqual(runningStatus);
+    expect(bridge.recordBackgroundConnectionRuntimeHeartbeat()).toBeUndefined();
     expect(bridge.acknowledgeBackgroundConnectionStop()).toEqual(runningStatus);
     expect(setEnabled).toHaveBeenCalledWith(true);
     expect(requestBatteryOptimizationExemption).toHaveBeenCalledOnce();
     expect(ensureStarted).toHaveBeenCalledOnce();
     expect(setRuntimeReady).toHaveBeenCalledWith(true);
+    expect(recordRuntimeHeartbeat).toHaveBeenCalledOnce();
     expect(acknowledgeStop).toHaveBeenCalledOnce();
+  });
+
+  it("treats ready legacy runtimes without heartbeat status as healthy", async () => {
+    const { runtimeHealthy: _, ...legacyRunningStatus } = runningStatus;
+    expoMocks.requireOptionalNativeModule.mockReturnValue({
+      getStatus: () => legacyRunningStatus,
+    });
+    const bridge = await import("./backgroundConnection");
+
+    expect(bridge.getBackgroundConnectionStatus()).toEqual(runningStatus);
   });
 
   it("normalizes native status events and exposes the stop request", async () => {

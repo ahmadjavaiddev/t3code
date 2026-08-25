@@ -5,6 +5,7 @@ import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppTextInput as TextInput } from "../../components/AppText";
+import { ComposerAttachmentStrip } from "../../components/ComposerAttachmentStrip";
 import {
   ComposerInlineControl,
   ComposerSelectControl,
@@ -15,6 +16,7 @@ import {
 import { ControlPillMenu } from "../../components/ControlPill";
 import { themeColorWithAlpha } from "../../lib/mobileTheme";
 import { useThemeColor } from "../../lib/useThemeColor";
+import type { DraftComposerImageAttachment } from "../../lib/composerImages";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { ComposerSurface } from "../threads/ThreadComposer";
 import {
@@ -26,6 +28,7 @@ import {
 
 export function ProjectTodoComposer(props: {
   readonly canSubmit: boolean;
+  readonly attachments: ReadonlyArray<DraftComposerImageAttachment>;
   readonly isEditing: boolean;
   readonly project: EnvironmentProject | null;
   readonly projectFallbackTitle: string | null;
@@ -37,7 +40,9 @@ export function ProjectTodoComposer(props: {
   readonly onChangeProject: (projectKey: string) => void;
   readonly onChangeStatus: (status: ProjectTodoStatus) => void;
   readonly onChangeText: (text: string) => void;
+  readonly onAddImages: () => void;
   readonly onClose: () => void;
+  readonly onRemoveImage: (imageId: string) => void;
   readonly onSubmit: () => void;
 }) {
   const insets = useSafeAreaInsets();
@@ -86,6 +91,17 @@ export function ProjectTodoComposer(props: {
           paddingTop: 14,
         }}
       >
+        {props.attachments.length > 0 ? (
+          <View className="pb-2">
+            <ComposerAttachmentStrip
+              attachments={props.attachments}
+              imageBorderRadius={14}
+              imageSize={60}
+              onRemove={props.onRemoveImage}
+              removeButtonPlacement="gutter"
+            />
+          </View>
+        ) : null}
         <TextInput
           accessibilityLabel={props.isEditing ? "Edit task or note" : "New task or note"}
           autoFocus
@@ -106,6 +122,13 @@ export function ProjectTodoComposer(props: {
             disabled={props.submitting}
             icon="xmark"
             onPress={props.onClose}
+            showChevron={false}
+          />
+          <ComposerToolbarButton
+            accessibilityLabel="Attach screenshot or image"
+            disabled={props.submitting}
+            icon="photo"
+            onPress={props.onAddImages}
             showChevron={false}
           />
           <ComposerToolbarScroller

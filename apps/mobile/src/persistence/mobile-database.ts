@@ -6,8 +6,10 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type { SQLiteDatabase } from "expo-sqlite";
 
+import type { DraftComposerImageAttachment } from "../lib/composerImages";
+
 const DATABASE_NAME = "t3code-client.db";
-const DATABASE_SCHEMA_VERSION = 3;
+const DATABASE_SCHEMA_VERSION = 4;
 const LEGACY_CACHE_DIRECTORIES = [
   "connection-shell-snapshots",
   "shell-snapshots",
@@ -37,6 +39,7 @@ export interface StoredProjectTodo {
   readonly projectId: ProjectId;
   readonly projectTitle: string;
   readonly text: string;
+  readonly attachments: ReadonlyArray<DraftComposerImageAttachment>;
   readonly status: ProjectTodoStatus;
   readonly createdAt: number;
   readonly updatedAt: number;
@@ -51,11 +54,49 @@ const StoredProjectTodoRows = Schema.Array(
     projectId: Schema.String,
     projectTitle: Schema.String,
     text: Schema.String,
+    attachmentsJson: Schema.String,
     statusCode: Schema.Number,
     createdAt: Schema.Number,
     updatedAt: Schema.Number,
   }),
 );
+
+const StoredProjectTodoAttachments = Schema.Array(
+  Schema.Struct({
+    id: Schema.String,
+    type: Schema.Literal("image"),
+    name: Schema.String,
+    mimeType: Schema.String,
+    sizeBytes: Schema.Number,
+    dataUrl: Schema.String,
+  }),
+);
+
+const decodeStoredProjectTodoAttachments = Schema.decodeUnknownSync(StoredProjectTodoAttachments);
+
+export function parseStoredProjectTodoAttachments(
+  attachmentsJson: string,
+): ReadonlyArray<DraftComposerImageAttachment> {
+  try {
+    return decodeStoredProjectTodoAttachments(JSON.parse(attachmentsJson) as unknown).map(
+      (attachment) => ({
+        ...attachment,
+        previewUri: attachment.dataUrl,
+      }),
+    );
+  } catch (error) {
+    console.warn("[mobile-database] ignored invalid todo attachments", error);
+    return [];
+  }
+}
+
+function encodeStoredProjectTodoAttachments(
+  attachments: ReadonlyArray<DraftComposerImageAttachment>,
+): string {
+  return JSON.stringify(
+    attachments.map(({ previewUri: _previewUri, ...attachment }) => attachment),
+  );
+}
 
 function projectTodoStatusFromCode(code: number): ProjectTodoStatus {
   if (code === 1) return "completed";
@@ -316,6 +357,7 @@ const makeAvailable = Effect.gen(function* () {
                 project_id TEXT NOT NULL,
                 project_title TEXT NOT NULL,
                 text TEXT NOT NULL,
+                attachments_json TEXT NOT NULL DEFAULT '[]',
                 completed INTEGER NOT NULL CHECK (completed IN (0, 1, 2)),
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL
@@ -325,7 +367,16 @@ const makeAvailable = Effect.gen(function* () {
                 ON project_todos (environment_id, project_id, created_at DESC);
             `);
       });
-      if ((schema?.user_version ?? 0) < DATABASE_SCHEMA_VERSION) {
+      const schemaVersion = schema?.user_version ?? 0;
+      if (schemaVersion < 3) {
+        const todoColumns = await database.getAllAsync<{ readonly name: string }>(
+          "PRAGMA table_info(project_todos)",
+        );
+        const attachmentsSelection = todoColumns.some(
+          (column) => column.name === "attachments_json",
+        )
+          ? "attachments_json"
+          : "'[]'";
         await database.withExclusiveTransactionAsync(async (transaction) => {
           await transaction.execAsync(`
             ALTER TABLE project_todos RENAME TO project_todos_before_status;
@@ -337,15 +388,16 @@ const makeAvailable = Effect.gen(function* () {
               project_id TEXT NOT NULL,
               project_title TEXT NOT NULL,
               text TEXT NOT NULL,
+              attachments_json TEXT NOT NULL DEFAULT '[]',
               completed INTEGER NOT NULL CHECK (completed IN (0, 1, 2)),
               created_at INTEGER NOT NULL,
               updated_at INTEGER NOT NULL
             );
 
             INSERT INTO project_todos
-              (id, environment_id, project_id, project_title, text, completed, created_at, updated_at)
+              (id, environment_id, project_id, project_title, text, attachments_json, completed, created_at, updated_at)
             SELECT
-              id, environment_id, project_id, project_title, text, completed, created_at, updated_at
+              id, environment_id, project_id, project_title, text, ${attachmentsSelection}, completed, created_at, updated_at
             FROM project_todos_before_status;
 
             DROP TABLE project_todos_before_status;
@@ -355,10 +407,15 @@ const makeAvailable = Effect.gen(function* () {
           `);
         });
         const legacyCachesMigrated =
-          (schema?.user_version ?? 0) >= 2 || (await migrateLegacyFileCaches(database));
+          schemaVersion >= 2 || (await migrateLegacyFileCaches(database));
         if (legacyCachesMigrated) {
           await database.execAsync(`PRAGMA user_version = ${DATABASE_SCHEMA_VERSION};`);
         }
+      } else if (schemaVersion < DATABASE_SCHEMA_VERSION) {
+        await database.execAsync(
+          "ALTER TABLE project_todos ADD COLUMN attachments_json TEXT NOT NULL DEFAULT '[]';",
+        );
+        await database.execAsync(`PRAGMA user_version = ${DATABASE_SCHEMA_VERSION};`);
       }
     },
     catch: databaseError("migrate"),
@@ -495,6 +552,7 @@ const makeAvailable = Effect.gen(function* () {
             project_id AS projectId,
             project_title AS projectTitle,
             text,
+            attachments_json AS attachmentsJson,
             completed AS statusCode,
             created_at AS createdAt,
             updated_at AS updatedAt
@@ -508,10 +566,11 @@ const makeAvailable = Effect.gen(function* () {
       Effect.flatMap(Schema.decodeUnknownEffect(StoredProjectTodoRows)),
       Effect.mapError(databaseError("load-project-todos")),
       Effect.map((todos) =>
-        todos.map(({ statusCode, ...todo }) => ({
+        todos.map(({ attachmentsJson, statusCode, ...todo }) => ({
           ...todo,
           environmentId: todo.environmentId as EnvironmentId,
           projectId: todo.projectId as ProjectId,
+          attachments: parseStoredProjectTodoAttachments(attachmentsJson),
           status: projectTodoStatusFromCode(statusCode),
         })),
       ),
@@ -521,13 +580,14 @@ const makeAvailable = Effect.gen(function* () {
         try: () =>
           database.runAsync(
             `INSERT INTO project_todos
-              (id, environment_id, project_id, project_title, text, completed, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              (id, environment_id, project_id, project_title, text, attachments_json, completed, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (id) DO UPDATE SET
                environment_id = excluded.environment_id,
                project_id = excluded.project_id,
                project_title = excluded.project_title,
                text = excluded.text,
+               attachments_json = excluded.attachments_json,
                completed = excluded.completed,
                updated_at = excluded.updated_at`,
             todo.id,
@@ -535,6 +595,7 @@ const makeAvailable = Effect.gen(function* () {
             todo.projectId,
             todo.projectTitle,
             todo.text,
+            encodeStoredProjectTodoAttachments(todo.attachments),
             projectTodoStatusCode(todo.status),
             todo.createdAt,
             todo.updatedAt,

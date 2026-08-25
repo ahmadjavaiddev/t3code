@@ -4,6 +4,7 @@ export type BackgroundConnectionStatusLabel =
   | "Running"
   | "Starting"
   | "Stopped"
+  | "Connection stalled"
   | "Battery optimization enabled";
 
 export function backgroundConnectionStatusLabel(
@@ -15,7 +16,10 @@ export function backgroundConnectionStatusLabel(
   if (!status.batteryOptimizationIgnored) {
     return "Battery optimization enabled";
   }
-  return status.serviceRunning && status.runtimeReady ? "Running" : "Starting";
+  if (!status.serviceRunning || !status.runtimeReady) {
+    return "Starting";
+  }
+  return status.runtimeHealthy ? "Running" : "Connection stalled";
 }
 
 export function shouldRequestBackgroundConnectionBatteryExemption(

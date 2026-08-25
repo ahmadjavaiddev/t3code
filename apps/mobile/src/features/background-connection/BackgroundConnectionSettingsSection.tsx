@@ -185,13 +185,6 @@ export function SyncSettingsSection() {
           </>
         ) : null}
       </SettingsSection>
-      {Platform.OS === "android" ? (
-        <Text className="px-2 text-sm leading-normal text-foreground-muted">
-          Keeps environment thread lists synchronized while your phone is locked or another app is
-          open. This can noticeably increase battery use, and Android will show a silent ongoing
-          service status.
-        </Text>
-      ) : null}
     </View>
   );
 }

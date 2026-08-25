@@ -189,13 +189,20 @@ export const makeEnvironmentShellState = Effect.fn("EnvironmentShellState.make")
     subscribeDynamic(
       ORCHESTRATION_WS_METHODS.subscribeShell,
       Effect.fn("EnvironmentShellState.makeSubscribeInput")(function* (session) {
-        yield* Ref.set(activeSubscriptionSession, session);
+        const previousSession = yield* Ref.getAndSet(activeSubscriptionSession, session);
+        const currentBeforeRefresh = yield* SubscriptionRef.get(state);
+        const preserveLive =
+          previousSession === session &&
+          currentBeforeRefresh.status === "live" &&
+          (yield* Ref.get(lastAuthoritativeSession)) === session;
         const supportsCompletionMarker = yield* session.initialConfig.pipe(
           Effect.map((config) => config.shellResumeCompletionMarker === true),
           Effect.orElseSucceed(() => false),
         );
-        yield* Ref.set(awaitingCompletion, supportsCompletionMarker);
-        yield* setSynchronizing;
+        yield* Ref.set(awaitingCompletion, supportsCompletionMarker && !preserveLive);
+        if (!preserveLive) {
+          yield* setSynchronizing;
+        }
 
         // Foreground resubscriptions on the same live session can resume from
         // the in-memory cursor. A new session reloads the authoritative HTTP

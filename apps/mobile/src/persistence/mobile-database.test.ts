@@ -16,7 +16,11 @@ vi.mock("expo-file-system", () => ({
   Paths: { document: "/documents" },
 }));
 
-import { decodeLegacyCacheRecord, make } from "./mobile-database";
+import {
+  decodeLegacyCacheRecord,
+  make,
+  parseStoredProjectTodoAttachments,
+} from "./mobile-database";
 
 describe("mobile database legacy cache migration", () => {
   it.effect("keeps acquisition failures typed on database operations", () =>
@@ -95,6 +99,16 @@ describe("mobile database legacy cache migration", () => {
             projectId: "project-1",
             projectTitle: "T3 Code",
             text: "Check the mobile header",
+            attachmentsJson: JSON.stringify([
+              {
+                id: "image-1",
+                type: "image",
+                name: "screen.png",
+                mimeType: "image/png",
+                sizeBytes: 3,
+                dataUrl: "data:image/png;base64,YWJj",
+              },
+            ]),
             statusCode: 2,
             createdAt: 1,
             updatedAt: 1,
@@ -105,6 +119,7 @@ describe("mobile database legacy cache migration", () => {
             projectId: "project-1",
             projectTitle: "T3 Code",
             text: "Already completed",
+            attachmentsJson: "[]",
             statusCode: 1,
             createdAt: 1,
             updatedAt: 1,
@@ -115,6 +130,7 @@ describe("mobile database legacy cache migration", () => {
             projectId: "project-1",
             projectTitle: "T3 Code",
             text: "Still open",
+            attachmentsJson: "[]",
             statusCode: 0,
             createdAt: 1,
             updatedAt: 1,
@@ -139,6 +155,17 @@ describe("mobile database legacy cache migration", () => {
           projectId: "project-1",
           projectTitle: "T3 Code",
           text: "Check the mobile header",
+          attachments: [
+            {
+              id: "image-1",
+              type: "image",
+              name: "screen.png",
+              mimeType: "image/png",
+              sizeBytes: 3,
+              dataUrl: "data:image/png;base64,YWJj",
+              previewUri: "data:image/png;base64,YWJj",
+            },
+          ],
           status: "in-progress",
           createdAt: 1,
           updatedAt: 1,
@@ -157,7 +184,19 @@ describe("mobile database legacy cache migration", () => {
 
         expect(runAsync).toHaveBeenCalledTimes(2);
         expect(runAsync.mock.calls[0]?.[0]).toContain("INSERT INTO project_todos");
-        expect(runAsync.mock.calls[0]?.[6]).toBe(1);
+        expect(runAsync.mock.calls[0]?.[6]).toBe(
+          JSON.stringify([
+            {
+              id: "image-1",
+              type: "image",
+              name: "screen.png",
+              mimeType: "image/png",
+              sizeBytes: 3,
+              dataUrl: "data:image/png;base64,YWJj",
+            },
+          ]),
+        );
+        expect(runAsync.mock.calls[0]?.[7]).toBe(1);
         expect(runAsync.mock.calls[1]).toEqual([
           "DELETE FROM project_todos WHERE id = ?",
           "todo-1",
@@ -189,8 +228,38 @@ describe("mobile database legacy cache migration", () => {
 
         expect(transactionExecAsync).toHaveBeenCalledTimes(2);
         expect(transactionExecAsync.mock.calls[1]?.[0]).toContain("CHECK (completed IN (0, 1, 2))");
-        expect(execAsync).toHaveBeenCalledWith("PRAGMA user_version = 3;");
+        expect(transactionExecAsync.mock.calls[1]?.[0]).toContain("attachments_json");
+        expect(execAsync).toHaveBeenCalledWith("PRAGMA user_version = 4;");
       }),
     ),
   );
+
+  it.effect("adds image storage to existing version 3 todo tables", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const execAsync = vi.fn(async () => undefined);
+        openDatabaseAsync.mockResolvedValueOnce({
+          execAsync,
+          runAsync: vi.fn(async () => ({ changes: 0, lastInsertRowId: 0 })),
+          getFirstAsync: vi.fn(async () => ({ user_version: 3 })),
+          getAllAsync: vi.fn(async () => []),
+          closeAsync: vi.fn(async () => undefined),
+          withExclusiveTransactionAsync: async (
+            use: (transaction: { execAsync: typeof execAsync }) => Promise<void>,
+          ) => use({ execAsync }),
+        });
+
+        yield* make;
+
+        expect(execAsync).toHaveBeenCalledWith(
+          "ALTER TABLE project_todos ADD COLUMN attachments_json TEXT NOT NULL DEFAULT '[]';",
+        );
+        expect(execAsync).toHaveBeenCalledWith("PRAGMA user_version = 4;");
+      }),
+    ),
+  );
+
+  it("falls back to no images when stored todo attachment JSON is invalid", () => {
+    expect(parseStoredProjectTodoAttachments("not-json")).toEqual([]);
+  });
 });

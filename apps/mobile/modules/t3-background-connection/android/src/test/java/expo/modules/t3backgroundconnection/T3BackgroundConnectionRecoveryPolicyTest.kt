@@ -54,4 +54,35 @@ class T3BackgroundConnectionRecoveryPolicyTest {
       ),
     )
   }
+
+  @Test
+  fun `runtime health requires a recent heartbeat from a ready service`() {
+    assertTrue(
+      T3BackgroundConnectionRecoveryPolicy.isRuntimeHealthy(
+        serviceRunning = true,
+        runtimeReady = true,
+        lastHeartbeatAtMs = 10_000L,
+        nowMs = 99_999L,
+        staleAfterMs = 90_000L,
+      ),
+    )
+    assertFalse(
+      T3BackgroundConnectionRecoveryPolicy.isRuntimeHealthy(
+        serviceRunning = true,
+        runtimeReady = true,
+        lastHeartbeatAtMs = 10_000L,
+        nowMs = 100_001L,
+        staleAfterMs = 90_000L,
+      ),
+    )
+    assertFalse(
+      T3BackgroundConnectionRecoveryPolicy.isRuntimeHealthy(
+        serviceRunning = true,
+        runtimeReady = false,
+        lastHeartbeatAtMs = 10_000L,
+        nowMs = 20_000L,
+        staleAfterMs = 90_000L,
+      ),
+    )
+  }
 }

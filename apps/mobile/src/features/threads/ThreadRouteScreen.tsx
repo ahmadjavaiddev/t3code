@@ -741,32 +741,46 @@ function ThreadRouteContent(
   }, [fileInspector.supported, handleToggleInspector, props.onReturnToThread, selectedThreadCwd]);
   const androidThreadMenuActions = useMemo(
     () => [
-      { id: "rename", title: "Rename thread", image: "pencil" },
       {
         id: "todos",
         title: "Tasks and notes",
+        subtitle: "Track work for this project",
         image: "doc.text",
         attributes: selectedThreadProject ? undefined : { disabled: true as const },
       },
       {
         id: "project-settings",
         title: "Project settings",
+        subtitle: "Configure scripts and project details",
         image: "gearshape",
         attributes: selectedThreadProject ? undefined : { disabled: true as const },
       },
       {
         id: "files",
         title: "Files",
+        subtitle: "Browse this project's files",
         image: "folder",
         attributes: selectedThreadCwd === null ? { disabled: true as const } : undefined,
       },
       {
         id: "terminal",
         title: "Terminal",
+        subtitle: "Run commands in this project",
         image: "terminal",
         attributes: selectedThreadProject?.workspaceRoot ? undefined : { disabled: true as const },
       },
-      { id: "git", title: "Git", image: "point.topleft.down.curvedto.point.bottomright.up" },
+      {
+        id: "git",
+        title: "Git",
+        subtitle: "Review changes and repository status",
+        image: "point.topleft.down.curvedto.point.bottomright.up",
+      },
+      {
+        id: "rename",
+        title: "Rename thread",
+        subtitle: "Change this thread's title",
+        image: "pencil",
+      },
     ],
     [selectedThreadCwd, selectedThreadProject],
   );
@@ -924,7 +938,6 @@ function ThreadRouteContent(
             <AndroidAnchoredMenu
               actions={androidThreadMenuActions}
               onPressAction={handleAndroidThreadMenuAction}
-              title="Thread actions"
             >
               <AndroidHeaderIconButton accessibilityLabel="Thread actions" icon="ellipsis" />
             </AndroidAnchoredMenu>

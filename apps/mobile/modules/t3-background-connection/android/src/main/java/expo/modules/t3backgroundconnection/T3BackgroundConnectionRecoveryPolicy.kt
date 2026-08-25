@@ -10,4 +10,17 @@ internal object T3BackgroundConnectionRecoveryPolicy {
     serviceRunning: Boolean,
     runtimeReady: Boolean
   ): Boolean = enabled && (!serviceRunning || !runtimeReady)
+
+  fun isRuntimeHealthy(
+    serviceRunning: Boolean,
+    runtimeReady: Boolean,
+    lastHeartbeatAtMs: Long,
+    nowMs: Long,
+    staleAfterMs: Long,
+  ): Boolean =
+    serviceRunning &&
+      runtimeReady &&
+      lastHeartbeatAtMs > 0L &&
+      nowMs >= lastHeartbeatAtMs &&
+      nowMs - lastHeartbeatAtMs <= staleAfterMs
 }

@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   acquireRoot: vi.fn(() => vi.fn()),
   relayStop: vi.fn(),
   setRuntimeReady: vi.fn(),
+  recordRuntimeHeartbeat: vi.fn(),
   acknowledgeStop: vi.fn(),
   enabled: true,
   firstAttempt: Promise.resolve(),
@@ -25,6 +26,7 @@ vi.mock("../../native/backgroundConnection", () => ({
   },
   getBackgroundConnectionStatus: () => ({ enabled: mocks.enabled }),
   setBackgroundConnectionRuntimeReady: mocks.setRuntimeReady,
+  recordBackgroundConnectionRuntimeHeartbeat: mocks.recordRuntimeHeartbeat,
   acknowledgeBackgroundConnectionStop: mocks.acknowledgeStop,
 }));
 vi.mock("../../state/atom-registry", () => ({ appAtomRegistry: {} }));
@@ -57,6 +59,7 @@ it("shares one runtime across duplicate native task starts and cleans it up once
   await vi.waitFor(() => {
     expect(mocks.acquireRoot).toHaveBeenCalledOnce();
     expect(mocks.setRuntimeReady).toHaveBeenCalledWith(true);
+    expect(mocks.recordRuntimeHeartbeat).toHaveBeenCalledOnce();
   });
 
   mocks.stopListener?.();
@@ -77,6 +80,7 @@ it("cleans up a task that finishes loading after the feature was disabled", asyn
 
   expect(mocks.acquireRoot).not.toHaveBeenCalled();
   expect(mocks.setRuntimeReady).not.toHaveBeenCalledWith(true);
+  expect(mocks.recordRuntimeHeartbeat).not.toHaveBeenCalled();
   expect(mocks.relayStop).not.toHaveBeenCalled();
   expect(mocks.removeStopListener).toHaveBeenCalledOnce();
   expect(mocks.setRuntimeReady).toHaveBeenLastCalledWith(false);
@@ -92,6 +96,7 @@ it("marks shell subscriptions ready and stops promptly while relay auth is loadi
   await vi.waitFor(() => {
     expect(mocks.acquireRoot).toHaveBeenCalledOnce();
     expect(mocks.setRuntimeReady).toHaveBeenCalledWith(true);
+    expect(mocks.recordRuntimeHeartbeat).toHaveBeenCalledOnce();
   });
 
   mocks.stopListener?.();
