@@ -11,6 +11,20 @@ Thread status labels make active work easy to scan. **Working** marks a turn in 
 **Done** marks a new completion you have not opened yet. Opening the thread clears **Done** on that
 device.
 
+## Completion notifications
+
+On web and desktop, turn on **Completion notifications** in **Settings → General** to receive a
+system notification when a thread becomes **Done** while T3 Code is in the background. The client
+must remain open, and your browser or operating system must allow notifications. Select the
+notification to return directly to the completed thread.
+
+On iOS, **Device Notifications** in **Settings** includes completion alerts from linked
+environments, even while another app is open.
+
+On Android, turn on **Keep connected in background** and **Local completion alerts** in the
+**Sync** settings section. Android posts those alerts directly from the device's live connection;
+they do not use EAS or T3 Connect push delivery.
+
 On web and desktop, drag a pinned thread to change its position. On mobile, open the thread's menu
 and choose **Move up** or **Move down**. The order is stored by the server and appears on your
 other connected devices.

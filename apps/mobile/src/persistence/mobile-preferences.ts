@@ -43,6 +43,8 @@ export interface Preferences {
   /** Device-local counterpart of desktop's `planModeEnabled` legacy flag. */
   readonly planModeEnabled?: boolean;
   readonly syncWorkingThreadMessages?: boolean;
+  /** Android-only, device-local alerts emitted by the live background connection. */
+  readonly localCompletionNotificationsEnabled?: boolean;
   /** Undefined preserves the default expanded Settled shelf. */
   readonly threadListV2SettledShelfExpanded?: boolean;
   /** Undefined preserves the default collapsed Snoozed shelf. */
@@ -112,6 +114,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     legacyThreadListEnabled?: boolean;
     planModeEnabled?: boolean;
     syncWorkingThreadMessages?: boolean;
+    localCompletionNotificationsEnabled?: boolean;
     threadListV2SettledShelfExpanded?: boolean;
     threadListV2SnoozedShelfExpanded?: boolean;
     threadCompletionTrackingStartedAt?: string;
@@ -189,6 +192,9 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   }
   if (typeof parsed.syncWorkingThreadMessages === "boolean") {
     preferences.syncWorkingThreadMessages = parsed.syncWorkingThreadMessages;
+  }
+  if (typeof parsed.localCompletionNotificationsEnabled === "boolean") {
+    preferences.localCompletionNotificationsEnabled = parsed.localCompletionNotificationsEnabled;
   }
   if (typeof parsed.threadListV2SettledShelfExpanded === "boolean") {
     preferences.threadListV2SettledShelfExpanded = parsed.threadListV2SettledShelfExpanded;

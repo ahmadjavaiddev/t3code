@@ -42,6 +42,11 @@ import * as Equal from "effect/Equal";
 import * as Schema from "effect/Schema";
 import { APP_VERSION, HOSTED_APP_CHANNEL, HOSTED_APP_CHANNEL_LABEL } from "../../branding";
 import {
+  readThreadCompletionNotificationPermission,
+  requestThreadCompletionNotificationPermission,
+  type ThreadCompletionNotificationPermission,
+} from "../../threadCompletionNotifications";
+import {
   canCheckForUpdate,
   getDesktopUpdateButtonTooltip,
   getDesktopUpdateInstallConfirmationMessage,
@@ -518,6 +523,9 @@ export function useSettingsRestore(onRestored?: () => void) {
       DEFAULT_UNIFIED_SETTINGS.enableProviderUpdateChecks
         ? ["Provider update checks"]
         : []),
+      ...(settings.notifyOnThreadCompletion !== DEFAULT_UNIFIED_SETTINGS.notifyOnThreadCompletion
+        ? ["Completion notifications"]
+        : []),
       ...(isBackgroundActivityDirty ? ["Background activity"] : []),
       ...(settings.defaultThreadEnvMode !== DEFAULT_UNIFIED_SETTINGS.defaultThreadEnvMode
         ? ["New thread mode"]
@@ -572,6 +580,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.glassOpacity,
       settings.enableLegacyTokenStreaming,
       settings.enableProviderUpdateChecks,
+      settings.notifyOnThreadCompletion,
       settings.sidebarAutoSettleAfterDays,
       settings.sidebarAutoSettleOnMerge,
       settings.sidebarProjectGroupingMode,
@@ -661,6 +670,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       sidebarAutoSettleOnMerge: DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleOnMerge,
       enableLegacyTokenStreaming: DEFAULT_UNIFIED_SETTINGS.enableLegacyTokenStreaming,
       enableProviderUpdateChecks: DEFAULT_UNIFIED_SETTINGS.enableProviderUpdateChecks,
+      notifyOnThreadCompletion: DEFAULT_UNIFIED_SETTINGS.notifyOnThreadCompletion,
       backgroundActivity: DEFAULT_UNIFIED_SETTINGS.backgroundActivity,
       backgroundActivityProfile: DEFAULT_UNIFIED_SETTINGS.backgroundActivityProfile,
       automaticGitFetchInterval: DEFAULT_UNIFIED_SETTINGS.automaticGitFetchInterval,
@@ -1857,6 +1867,10 @@ export function GeneralSettingsPanel() {
   const settings = usePrimarySettings();
   const updateSettings = useUpdatePrimarySettings();
   const [backgroundActivityDialogOpen, setBackgroundActivityDialogOpen] = useState(false);
+  const [completionNotificationPermission, setCompletionNotificationPermission] =
+    useState<ThreadCompletionNotificationPermission>(() =>
+      readThreadCompletionNotificationPermission(),
+    );
   const lastEnabledProjectGroupingMode = useRef<SidebarProjectGroupingMode>(
     readLastEnabledProjectGroupingMode(),
   );
@@ -1905,10 +1919,99 @@ export function GeneralSettingsPanel() {
     settings.backgroundActivity,
     DEFAULT_UNIFIED_SETTINGS.backgroundActivity,
   );
+  const completionNotificationsAvailable = completionNotificationPermission !== "unsupported";
+  const completionNotificationsEnabled =
+    settings.notifyOnThreadCompletion && completionNotificationPermission === "granted";
+
+  useEffect(() => {
+    const refreshPermission = () => {
+      setCompletionNotificationPermission(readThreadCompletionNotificationPermission());
+    };
+    window.addEventListener("focus", refreshPermission);
+    document.addEventListener("visibilitychange", refreshPermission);
+    return () => {
+      window.removeEventListener("focus", refreshPermission);
+      document.removeEventListener("visibilitychange", refreshPermission);
+    };
+  }, []);
+
+  const setCompletionNotificationsEnabled = useCallback(
+    async (enabled: boolean) => {
+      if (!enabled) {
+        updateSettings({ notifyOnThreadCompletion: false });
+        return;
+      }
+
+      const result = await settlePromise(requestThreadCompletionNotificationPermission);
+      if (result._tag === "Failure") {
+        toastManager.add(
+          stackedThreadToast({
+            type: "error",
+            title: "Could not enable notifications",
+            description: "T3 Code could not request notification access from this device.",
+          }),
+        );
+        return;
+      }
+
+      setCompletionNotificationPermission(result.value);
+      if (result.value === "granted") {
+        updateSettings({ notifyOnThreadCompletion: true });
+        return;
+      }
+
+      updateSettings({ notifyOnThreadCompletion: false });
+      toastManager.add(
+        stackedThreadToast({
+          type: "error",
+          title: "Notifications are blocked",
+          description:
+            "Allow notifications for T3 Code in your browser or system settings, then try again.",
+        }),
+      );
+    },
+    [updateSettings],
+  );
 
   return (
     <SettingsPageContainer>
       <SettingsSection title="General">
+        <SettingsRow
+          {...searchableSetting("thread-completion-notifications")}
+          description={
+            completionNotificationsAvailable
+              ? "Show a system notification when a thread finishes while T3 Code is in the background."
+              : "System notifications are not available in this browser."
+          }
+          status={
+            completionNotificationPermission === "denied"
+              ? "Blocked by your browser or system notification settings."
+              : undefined
+          }
+          resetAction={
+            settings.notifyOnThreadCompletion !==
+            DEFAULT_UNIFIED_SETTINGS.notifyOnThreadCompletion ? (
+              <SettingResetButton
+                label="completion notifications"
+                onClick={() =>
+                  updateSettings({
+                    notifyOnThreadCompletion: DEFAULT_UNIFIED_SETTINGS.notifyOnThreadCompletion,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <Switch
+              checked={completionNotificationsEnabled}
+              disabled={!completionNotificationsAvailable}
+              onCheckedChange={(checked) =>
+                void setCompletionNotificationsEnabled(Boolean(checked))
+              }
+              aria-label="Notify when threads complete"
+            />
+          }
+        />
         <SettingsRow
           {...searchableSetting("sync-working-thread-messages")}
           description="Keep messages from actively working threads synced while this app is open."

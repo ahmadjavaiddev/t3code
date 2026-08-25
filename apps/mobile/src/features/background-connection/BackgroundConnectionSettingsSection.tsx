@@ -12,6 +12,11 @@ import {
   type BackgroundConnectionStatus,
 } from "../../native/backgroundConnection";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
+import {
+  readLocalCompletionNotificationPermission,
+  requestLocalCompletionNotificationPermission,
+  type LocalCompletionNotificationPermission,
+} from "../notifications/localCompletionNotifications";
 import { SettingsSection } from "../settings/components/SettingsSection";
 import { SettingsSwitchRow } from "../settings/components/SettingsSwitchRow";
 import {
@@ -37,6 +42,8 @@ export function SyncSettingsSection() {
   const savePreferences = useAtomSet(updateMobilePreferencesAtom);
   const [status, setStatus] = useState(getBackgroundConnectionStatus);
   const [changing, setChanging] = useState(false);
+  const [completionNotificationPermission, setCompletionNotificationPermission] =
+    useState<LocalCompletionNotificationPermission>({ type: "unsupported" });
 
   useEffect(() => {
     if (Platform.OS !== "android") {
@@ -53,6 +60,22 @@ export function SyncSettingsSection() {
       nativeSubscription.remove();
       appStateSubscription.remove();
     };
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+    const refreshPermission = () => {
+      void readLocalCompletionNotificationPermission()
+        .then(setCompletionNotificationPermission)
+        .catch(() => setCompletionNotificationPermission({ type: "denied", canAskAgain: true }));
+    };
+    refreshPermission();
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") refreshPermission();
+    });
+    return () => subscription.remove();
   }, []);
 
   const requestExemption = useCallback(async () => {
@@ -83,6 +106,35 @@ export function SyncSettingsSection() {
   const syncWorkingThreadMessages =
     AsyncResult.isSuccess(preferencesResult) &&
     preferencesResult.value.syncWorkingThreadMessages === true;
+  const localCompletionNotificationsEnabled =
+    AsyncResult.isSuccess(preferencesResult) &&
+    preferencesResult.value.localCompletionNotificationsEnabled === true &&
+    completionNotificationPermission.type === "granted";
+
+  const handleLocalCompletionNotificationsChange = useCallback(
+    async (enabled: boolean) => {
+      if (!enabled) {
+        savePreferences({ localCompletionNotificationsEnabled: false });
+        return;
+      }
+      try {
+        const permission = await requestLocalCompletionNotificationPermission();
+        setCompletionNotificationPermission(permission);
+        if (permission.type === "granted") {
+          savePreferences({ localCompletionNotificationsEnabled: true });
+          return;
+        }
+      } catch {
+        // The alert below covers native permission/channel failures too.
+      }
+      savePreferences({ localCompletionNotificationsEnabled: false });
+      Alert.alert(
+        "Notifications unavailable",
+        "Allow notifications for T3 Code in Android settings, then try again.",
+      );
+    },
+    [savePreferences],
+  );
 
   return (
     <View className="gap-3">
@@ -101,6 +153,18 @@ export function SyncSettingsSection() {
               label="Keep connected in background"
               value={status.enabled}
               onValueChange={(enabled) => void handleEnabledChange(enabled)}
+            />
+            <SettingsSwitchRow
+              disabled={!status.supported || !status.enabled}
+              icon="bell.badge"
+              label="Local completion alerts"
+              subtitle={
+                status.enabled
+                  ? "Posted by this device—no EAS or T3 Connect push."
+                  : "Turn on the background connection first."
+              }
+              value={localCompletionNotificationsEnabled}
+              onValueChange={(enabled) => void handleLocalCompletionNotificationsChange(enabled)}
             />
             <View className="border-t border-border px-4 py-3">
               {canRetryBatteryExemption ? (

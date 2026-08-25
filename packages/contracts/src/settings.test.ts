@@ -27,6 +27,18 @@ describe("ClientSettings background thread sync", () => {
   });
 });
 
+describe("ClientSettings thread completion notifications", () => {
+  it("defaults to off and preserves an explicit opt-in", () => {
+    expect(decodeClientSettings({}).notifyOnThreadCompletion).toBe(false);
+    expect(decodeClientSettings({ notifyOnThreadCompletion: true }).notifyOnThreadCompletion).toBe(
+      true,
+    );
+    expect(
+      decodeClientSettingsPatch({ notifyOnThreadCompletion: true }).notifyOnThreadCompletion,
+    ).toBe(true);
+  });
+});
+
 describe("ClientSettings word wrap", () => {
   it("defaults word wrap on", () => {
     expect(decodeClientSettings({}).wordWrap).toBe(true);
