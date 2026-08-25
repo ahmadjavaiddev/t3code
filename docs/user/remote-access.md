@@ -227,14 +227,15 @@ Hosted pairing does not proxy traffic through T3 Code. The browser still connect
 
 ## Managing Access Later
 
-On mobile, open **Settings** → **Environments**, expand an environment, and choose **Manage client
-access**. A management-capable mobile session can:
+On mobile, open **Settings** → **Environments**. The first saved environment is selected by default;
+use the device selector to switch environments. Its connection details, pairing links, and authorized
+clients are managed together on that same screen. A management-capable mobile session can:
 
 - create and share one-time pairing links
 - inspect active pairing links and authorized clients
 - revoke individual links or clients, or revoke every other client
 
-Ordinary mobile pairings intentionally cannot manage other clients. If the access screen asks for
+Ordinary mobile pairings intentionally cannot manage other clients. If the Environments screen asks for
 management permission, pair again with the owner link printed when the server starts (or a link
 created with **Connection management** enabled), then enable **Connection management** in the
 mobile **Add Environment** form. The server will reject the request unless that one-time link grants

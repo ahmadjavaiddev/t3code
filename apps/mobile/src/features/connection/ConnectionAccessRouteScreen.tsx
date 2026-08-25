@@ -1,4 +1,4 @@
-import { StackActions, useNavigation, type StaticScreenProps } from "@react-navigation/native";
+import { StackActions, useNavigation } from "@react-navigation/native";
 import { type AuthClientSession, type AuthPairingLink, EnvironmentId } from "@t3tools/contracts";
 import {
   createEnvironmentPairingCredential,
@@ -7,27 +7,15 @@ import {
   revokeOtherEnvironmentClientSessions,
 } from "@t3tools/client-runtime/state/auth";
 import * as Option from "effect/Option";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Platform,
-  Pressable,
-  ScrollView,
-  Share,
-  Switch,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useCallback, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, Pressable, Share, Switch, View } from "react-native";
 
-import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { AppText as Text, AppTextInput as TextInput } from "../../components/AppText";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { SymbolView } from "../../components/AppSymbol";
 import { copyTextWithHaptic } from "../../lib/copyTextWithHaptic";
 import { runtime } from "../../lib/runtime";
 import { useThemeColor } from "../../lib/useThemeColor";
-import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { authEnvironment } from "../../state/auth";
 import { useEnvironmentQuery } from "../../state/query";
 import { useSavedRemoteConnection } from "../../state/use-remote-environment-registry";
@@ -45,43 +33,14 @@ import {
   sortPairingLinks,
 } from "./connectionAccessModel";
 
-type ConnectionAccessRouteParams = {
-  readonly environmentId: string;
-};
-
 type MutationKind = "create" | "revoke-others" | `pairing-link:${string}` | `client:${string}`;
-
-export function ConnectionAccessRouteScreen({
-  route,
-}: StaticScreenProps<ConnectionAccessRouteParams>) {
-  return (
-    <ConnectionAccessContent
-      environmentId={route.params.environmentId}
-      managementPairingRoute="SettingsEnvironmentNew"
-    />
-  );
-}
-
-export function RootConnectionAccessRouteScreen({
-  route,
-}: StaticScreenProps<ConnectionAccessRouteParams>) {
-  return (
-    <ConnectionAccessContent
-      environmentId={route.params.environmentId}
-      managementPairingRoute="ConnectionsNew"
-    />
-  );
-}
 
 export function ConnectionAccessContent(props: {
   readonly environmentId: string;
-  readonly embedded?: boolean;
   readonly managementPairingRoute: "ConnectionsNew" | "SettingsEnvironmentNew";
 }) {
-  const embedded = props.embedded ?? false;
   const environmentId = EnvironmentId.make(props.environmentId);
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const connection = useSavedRemoteConnection(environmentId);
   const prepared = Option.getOrNull(usePreparedConnection(environmentId));
   const session = useEnvironmentQuery(environmentSession.sessionStateAtom(environmentId));
@@ -250,249 +209,209 @@ export function ConnectionAccessContent(props: {
   );
 
   return (
-    <View collapsable={false} className={embedded ? undefined : "flex-1 bg-sheet"}>
-      {embedded ? null : Platform.OS === "android" ? (
-        <>
-          <NativeStackScreenOptions options={{ headerShown: false }} />
-          <AndroidScreenHeader title="Connection Access" onBack={() => navigation.goBack()} />
-        </>
+    <View collapsable={false} className="gap-6">
+      {connection === null ? (
+        <ErrorBanner message="This environment is no longer saved on this device." />
+      ) : session.isPending && session.data === null ? (
+        <View className="items-center gap-3 py-10">
+          <ActivityIndicator color={iconColor} />
+          <Text className="text-sm text-foreground-muted">Checking access…</Text>
+        </View>
+      ) : session.data === null && session.error ? (
+        <View className="gap-4 rounded-[24px] bg-card p-5">
+          <View className="gap-2">
+            <Text className="text-lg font-t3-bold text-foreground">Could not check access</Text>
+            <Text className="text-sm leading-normal text-foreground-muted">
+              Reconnect this environment, then retry the permission check.
+            </Text>
+          </View>
+          <ErrorBanner message={session.error} />
+          <ConnectionSheetButton
+            icon="arrow.clockwise"
+            label="Retry"
+            onPress={session.refresh}
+            tone="secondary"
+          />
+        </View>
+      ) : !canRead ? (
+        <View className="gap-4 rounded-[24px] bg-card p-5">
+          <View className="gap-2">
+            <Text className="text-lg font-t3-bold text-foreground">Management access required</Text>
+            <Text className="text-sm leading-normal text-foreground-muted">
+              This mobile session can use the environment, but it cannot inspect or revoke other
+              clients. Pair again with an owner link and enable connection management.
+            </Text>
+          </View>
+          {session.error ? <ErrorBanner message={session.error} /> : null}
+          <ConnectionSheetButton
+            icon="link"
+            label="Pair for management"
+            onPress={openManagementPairing}
+            tone="primary"
+          />
+        </View>
       ) : (
-        <NativeStackScreenOptions
-          options={{ title: connection?.environmentLabel ?? "Connection Access" }}
-        />
-      )}
-      <ConnectionAccessContainer embedded={embedded} bottomInset={insets.bottom}>
-        {connection === null ? (
-          <ErrorBanner message="This environment is no longer saved on this device." />
-        ) : session.isPending && session.data === null ? (
-          <View className="items-center gap-3 py-10">
-            <ActivityIndicator color={iconColor} />
-            <Text className="text-sm text-foreground-muted">Checking access…</Text>
-          </View>
-        ) : session.data === null && session.error ? (
-          <View className="gap-4 rounded-[24px] bg-card p-5">
-            <View className="gap-2">
-              <Text className="text-lg font-t3-bold text-foreground">Could not check access</Text>
-              <Text className="text-sm leading-normal text-foreground-muted">
-                Reconnect this environment, then retry the permission check.
-              </Text>
-            </View>
-            <ErrorBanner message={session.error} />
-            <ConnectionSheetButton
-              icon="arrow.clockwise"
-              label="Retry"
-              onPress={session.refresh}
-              tone="secondary"
-            />
-          </View>
-        ) : !canRead ? (
-          <View className="gap-4 rounded-[24px] bg-card p-5">
-            <View className="gap-2">
-              <Text className="text-lg font-t3-bold text-foreground">
-                Management access required
-              </Text>
-              <Text className="text-sm leading-normal text-foreground-muted">
-                This mobile session can use the environment, but it cannot inspect or revoke other
-                clients. Pair again with an owner link and enable connection management.
-              </Text>
-            </View>
-            {session.error ? <ErrorBanner message={session.error} /> : null}
-            <ConnectionSheetButton
-              icon="link"
-              label="Pair for management"
-              onPress={openManagementPairing}
-              tone="primary"
-            />
-          </View>
-        ) : (
-          <>
-            {mutationError || access.error ? (
-              <ErrorBanner message={mutationError ?? access.error ?? "Request failed."} />
-            ) : null}
+        <>
+          {mutationError || access.error ? (
+            <ErrorBanner message={mutationError ?? access.error ?? "Request failed."} />
+          ) : null}
 
-            {canWrite ? (
-              <SettingsSection title="Create pairing link" card>
-                <View className="gap-4 p-4">
-                  <View className="gap-1.5">
-                    <Text className="text-2xs font-t3-bold tracking-[0.8px] uppercase text-foreground-muted">
-                      Device label (optional)
-                    </Text>
-                    <TextInput
-                      autoCapitalize="words"
-                      autoCorrect={false}
-                      placeholder="My tablet"
-                      value={label}
-                      onChangeText={setLabel}
-                      className="rounded-[14px] border border-input-border bg-input px-4 py-3 text-base text-foreground"
-                    />
-                  </View>
-                  <View className="flex-row items-center gap-3">
-                    <View className="min-w-0 flex-1 gap-0.5">
-                      <Text className="text-sm font-t3-bold text-foreground">
-                        Connection management
-                      </Text>
-                      <Text className="text-xs leading-normal text-foreground-muted">
-                        Let the new client create links and revoke access.
-                      </Text>
-                    </View>
-                    <Switch
-                      accessibilityLabel="Grant connection management"
-                      value={grantManagement}
-                      onValueChange={setGrantManagement}
-                      trackColor={{ true: switchTrackColor }}
-                    />
-                  </View>
-                  <ConnectionSheetButton
-                    icon="plus"
-                    label={mutation === "create" ? "Creating…" : "Create link"}
-                    disabled={mutation !== null || prepared === null}
-                    onPress={() => void handleCreate()}
-                    tone="primary"
+          {canWrite ? (
+            <SettingsSection title="Create pairing link" card>
+              <View className="gap-4 p-4">
+                <View className="gap-1.5">
+                  <Text className="text-2xs font-t3-bold tracking-[0.8px] uppercase text-foreground-muted">
+                    Device label (optional)
+                  </Text>
+                  <TextInput
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    placeholder="My tablet"
+                    value={label}
+                    onChangeText={setLabel}
+                    className="rounded-[14px] border border-input-border bg-input px-4 py-3 text-base text-foreground"
                   />
                 </View>
-              </SettingsSection>
-            ) : null}
-
-            <SettingsSection title="Active pairing links" card>
-              {access.isPending && snapshot === null ? (
-                <View className="items-center py-8">
-                  <ActivityIndicator color={iconColor} />
-                </View>
-              ) : pairingLinks.length === 0 ? (
-                <Text className="px-4 py-5 text-sm text-foreground-muted">
-                  No active pairing links.
-                </Text>
-              ) : (
-                pairingLinks.map((pairingLink, index) => (
-                  <View
-                    key={pairingLink.id}
-                    className={index === 0 ? "gap-3 p-4" : "gap-3 border-t border-border p-4"}
-                  >
-                    <View className="gap-0.5">
-                      <Text className="text-base font-t3-bold text-foreground">
-                        {pairingLink.label ?? "Pairing link"}
-                      </Text>
-                      <Text className="text-xs text-foreground-muted">
-                        Expires {formatAccessDate(pairingLink.expiresAt)} ·{" "}
-                        {pairingLink.scopes.length} permissions
-                      </Text>
-                    </View>
-                    <View className="flex-row gap-2">
-                      <AccessAction
-                        icon="doc.on.doc"
-                        label="Copy"
-                        onPress={() =>
-                          copyTextWithHaptic(pairingUrl(pairingLink.credential), {
-                            target: "mobile-pairing-link",
-                          })
-                        }
-                      />
-                      <AccessAction
-                        icon="arrow.up"
-                        label="Share"
-                        onPress={() => sharePairingLink(pairingLink.credential)}
-                      />
-                      {canWrite ? (
-                        <AccessAction
-                          danger
-                          disabled={mutation !== null || prepared === null}
-                          icon="trash"
-                          label="Revoke"
-                          onPress={() => confirmRevokePairingLink(pairingLink)}
-                        />
-                      ) : null}
-                    </View>
+                <View className="flex-row items-center gap-3">
+                  <View className="min-w-0 flex-1 gap-0.5">
+                    <Text className="text-sm font-t3-bold text-foreground">
+                      Connection management
+                    </Text>
+                    <Text className="text-xs leading-normal text-foreground-muted">
+                      Let the new client create links and revoke access.
+                    </Text>
                   </View>
-                ))
-              )}
+                  <Switch
+                    accessibilityLabel="Grant connection management"
+                    value={grantManagement}
+                    onValueChange={setGrantManagement}
+                    trackColor={{ true: switchTrackColor }}
+                  />
+                </View>
+                <ConnectionSheetButton
+                  icon="plus"
+                  label={mutation === "create" ? "Creating…" : "Create link"}
+                  disabled={mutation !== null || prepared === null}
+                  onPress={() => void handleCreate()}
+                  tone="primary"
+                />
+              </View>
             </SettingsSection>
+          ) : null}
 
-            <SettingsSection title="Authorized clients" card>
-              {clientSessions.length === 0 ? (
-                <Text className="px-4 py-5 text-sm text-foreground-muted">
-                  No authorized clients found.
-                </Text>
-              ) : (
-                clientSessions.map((client, index) => (
-                  <View
-                    key={client.sessionId}
-                    className={
-                      index === 0
-                        ? "flex-row items-center gap-3 p-4"
-                        : "flex-row items-center gap-3 border-t border-border p-4"
-                    }
-                  >
-                    <View className="min-w-0 flex-1 gap-0.5">
-                      <Text className="text-base font-t3-bold text-foreground" numberOfLines={1}>
-                        {clientSessionLabel(client)}
-                      </Text>
-                      <Text className="text-xs text-foreground-muted">
-                        {client.current
-                          ? "This device"
-                          : client.connected
-                            ? "Connected"
-                            : "Offline"}
-                        {client.lastConnectedAt
-                          ? ` · ${formatAccessDate(client.lastConnectedAt)}`
-                          : ""}
-                      </Text>
-                    </View>
-                    {canWrite && !client.current ? (
-                      <Pressable
-                        accessibilityLabel={`Revoke ${clientSessionLabel(client)}`}
-                        accessibilityRole="button"
+          <SettingsSection title="Active pairing links" card>
+            {access.isPending && snapshot === null ? (
+              <View className="items-center py-8">
+                <ActivityIndicator color={iconColor} />
+              </View>
+            ) : pairingLinks.length === 0 ? (
+              <Text className="px-4 py-5 text-sm text-foreground-muted">
+                No active pairing links.
+              </Text>
+            ) : (
+              pairingLinks.map((pairingLink, index) => (
+                <View
+                  key={pairingLink.id}
+                  className={index === 0 ? "gap-3 p-4" : "gap-3 border-t border-border p-4"}
+                >
+                  <View className="gap-0.5">
+                    <Text className="text-base font-t3-bold text-foreground">
+                      {pairingLink.label ?? "Pairing link"}
+                    </Text>
+                    <Text className="text-xs text-foreground-muted">
+                      Expires {formatAccessDate(pairingLink.expiresAt)} ·{" "}
+                      {pairingLink.scopes.length} permissions
+                    </Text>
+                  </View>
+                  <View className="flex-row gap-2">
+                    <AccessAction
+                      icon="doc.on.doc"
+                      label="Copy"
+                      onPress={() =>
+                        copyTextWithHaptic(pairingUrl(pairingLink.credential), {
+                          target: "mobile-pairing-link",
+                        })
+                      }
+                    />
+                    <AccessAction
+                      icon="arrow.up"
+                      label="Share"
+                      onPress={() => sharePairingLink(pairingLink.credential)}
+                    />
+                    {canWrite ? (
+                      <AccessAction
+                        danger
                         disabled={mutation !== null || prepared === null}
-                        className="h-10 w-10 items-center justify-center rounded-[13px] border border-danger-border bg-danger disabled:opacity-50"
-                        onPress={() => confirmRevokeClient(client)}
-                      >
-                        <SymbolView
-                          name="trash"
-                          size={14}
-                          tintColor={dangerIconColor}
-                          type="monochrome"
-                        />
-                      </Pressable>
+                        icon="trash"
+                        label="Revoke"
+                        onPress={() => confirmRevokePairingLink(pairingLink)}
+                      />
                     ) : null}
                   </View>
-                ))
-              )}
-            </SettingsSection>
+                </View>
+              ))
+            )}
+          </SettingsSection>
 
-            {canWrite && clientSessions.some((client) => !client.current) ? (
-              <ConnectionSheetButton
-                icon="trash"
-                label={mutation === "revoke-others" ? "Revoking…" : "Revoke other clients"}
-                disabled={mutation !== null || prepared === null}
-                onPress={confirmRevokeOthers}
-                tone="danger"
-              />
-            ) : null}
-          </>
-        )}
-      </ConnectionAccessContainer>
+          <SettingsSection title="Authorized clients" card>
+            {clientSessions.length === 0 ? (
+              <Text className="px-4 py-5 text-sm text-foreground-muted">
+                No authorized clients found.
+              </Text>
+            ) : (
+              clientSessions.map((client, index) => (
+                <View
+                  key={client.sessionId}
+                  className={
+                    index === 0
+                      ? "flex-row items-center gap-3 p-4"
+                      : "flex-row items-center gap-3 border-t border-border p-4"
+                  }
+                >
+                  <View className="min-w-0 flex-1 gap-0.5">
+                    <Text className="text-base font-t3-bold text-foreground" numberOfLines={1}>
+                      {clientSessionLabel(client)}
+                    </Text>
+                    <Text className="text-xs text-foreground-muted">
+                      {client.current ? "This device" : client.connected ? "Connected" : "Offline"}
+                      {client.lastConnectedAt
+                        ? ` · ${formatAccessDate(client.lastConnectedAt)}`
+                        : ""}
+                    </Text>
+                  </View>
+                  {canWrite && !client.current ? (
+                    <Pressable
+                      accessibilityLabel={`Revoke ${clientSessionLabel(client)}`}
+                      accessibilityRole="button"
+                      disabled={mutation !== null || prepared === null}
+                      className="h-10 w-10 items-center justify-center rounded-[13px] border border-danger-border bg-danger disabled:opacity-50"
+                      onPress={() => confirmRevokeClient(client)}
+                    >
+                      <SymbolView
+                        name="trash"
+                        size={14}
+                        tintColor={dangerIconColor}
+                        type="monochrome"
+                      />
+                    </Pressable>
+                  ) : null}
+                </View>
+              ))
+            )}
+          </SettingsSection>
+
+          {canWrite && clientSessions.some((client) => !client.current) ? (
+            <ConnectionSheetButton
+              icon="trash"
+              label={mutation === "revoke-others" ? "Revoking…" : "Revoke other clients"}
+              disabled={mutation !== null || prepared === null}
+              onPress={confirmRevokeOthers}
+              tone="danger"
+            />
+          ) : null}
+        </>
+      )}
     </View>
-  );
-}
-
-function ConnectionAccessContainer(props: {
-  readonly embedded: boolean;
-  readonly bottomInset: number;
-  readonly children: ReactNode;
-}) {
-  if (props.embedded) {
-    return <View className="gap-6">{props.children}</View>;
-  }
-
-  return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      showsVerticalScrollIndicator={false}
-      className="flex-1"
-      contentContainerClassName="gap-6 px-5 pt-4"
-      contentContainerStyle={{ paddingBottom: Math.max(props.bottomInset, 18) + 18 }}
-    >
-      {props.children}
-    </ScrollView>
   );
 }
 

@@ -2,17 +2,15 @@ import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/Stac
 import { StackActions, useNavigation } from "@react-navigation/native";
 import { SymbolView } from "../../components/AppSymbol";
 import type { EnvironmentId } from "@t3tools/contracts";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText as Text } from "../../components/AppText";
 import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { CloudEnvironmentRows } from "../connection/CloudEnvironmentRows";
-import { ConnectionEnvironmentRow } from "../connection/ConnectionEnvironmentRow";
-import { toggleExpandedEnvironment } from "../connection/environmentExpansion";
+import { EnvironmentManager } from "../connection/EnvironmentManager";
 import { splitEnvironmentSections } from "../connection/environmentSections";
-import { cn } from "../../lib/cn";
 import { useThemeColor } from "../../lib/useThemeColor";
 import { useRemoteConnections } from "../../state/use-remote-environment-registry";
 import {
@@ -40,17 +38,12 @@ export function SettingsEnvironmentsRouteScreen() {
   const localEnvironments = SHOWCASE_ENABLED
     ? applyShowcaseLocalEnvironmentDisplayUrls(environmentSections.localEnvironments)
     : environmentSections.localEnvironments;
-  const connectedCloudEnvironments = SHOWCASE_ENABLED
-    ? SHOWCASE_CONNECTED_CLOUD_ENVIRONMENTS
-    : environmentSections.connectedCloudEnvironments;
-  const hasLocalEnvironments = localEnvironments.length > 0;
-  const [expandedId, setExpandedId] = useState<EnvironmentId | null>(null);
+  const managedEnvironments = SHOWCASE_ENABLED ? localEnvironments : connectedEnvironments;
+  const connectedCloudEnvironments = SHOWCASE_ENABLED ? SHOWCASE_CONNECTED_CLOUD_ENVIRONMENTS : [];
+  const hasEnvironments = managedEnvironments.length > 0;
   const accentColor = useThemeColor("--color-icon-muted");
   const headerIconColor = useThemeColor("--color-icon");
 
-  const handleToggle = useCallback((environmentId: EnvironmentId) => {
-    setExpandedId((current) => toggleExpandedEnvironment(current, environmentId));
-  }, []);
   const handleUpdateEnvironment = useCallback(
     (
       environmentId: EnvironmentId,
@@ -115,30 +108,14 @@ export function SettingsEnvironmentsRouteScreen() {
           paddingBottom: Math.max(insets.bottom, 18) + 18,
         }}
       >
-        {hasLocalEnvironments ? (
-          <View collapsable={false} className="overflow-hidden rounded-[24px] bg-card">
-            {localEnvironments.map((environment, index) => (
-              <View
-                key={environment.environmentId}
-                collapsable={false}
-                className={cn(index !== 0 && "border-t border-border")}
-              >
-                <ConnectionEnvironmentRow
-                  environment={environment}
-                  expanded={expandedId === environment.environmentId}
-                  onToggle={() => handleToggle(environment.environmentId)}
-                  onManageAccess={(environmentId) =>
-                    navigation.dispatch(
-                      StackActions.push("SettingsEnvironmentAccess", { environmentId }),
-                    )
-                  }
-                  onReconnect={onReconnectEnvironment}
-                  onRemove={onRemoveEnvironmentPress}
-                  onUpdate={handleUpdateEnvironment}
-                />
-              </View>
-            ))}
-          </View>
+        {hasEnvironments ? (
+          <EnvironmentManager
+            environments={managedEnvironments}
+            managementPairingRoute="SettingsEnvironmentNew"
+            onReconnect={onReconnectEnvironment}
+            onRemove={onRemoveEnvironmentPress}
+            onUpdate={handleUpdateEnvironment}
+          />
         ) : (
           <View collapsable={false} className="items-center gap-3 rounded-[24px] bg-card px-6 py-8">
             <View className="h-12 w-12 items-center justify-center rounded-[16px] bg-subtle">
@@ -156,9 +133,8 @@ export function SettingsEnvironmentsRouteScreen() {
           </View>
         )}
 
-        {/* Always mounted: already-connected relay environments must stay
-            visible (and removable) even when cloud config is missing or the
-            user is signed out — the component gates discovery itself. */}
+        {/* Keep cloud discovery mounted so linked environments remain available
+            even when this device has no direct environments yet. */}
         <CloudEnvironmentRows
           connectedCloudEnvironments={connectedCloudEnvironments}
           onReconnectEnvironment={onReconnectEnvironment}

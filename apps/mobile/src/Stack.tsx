@@ -33,10 +33,6 @@ import { GitOverviewSheet } from "./features/threads/git/GitOverviewSheet";
 import { ThreadRouteScreen } from "./features/threads/ThreadRouteScreen";
 import { ConnectionsRouteScreen } from "./features/connection/ConnectionsRouteScreen";
 import { ConnectionsNewRouteScreen } from "./features/connection/ConnectionsNewRouteScreen";
-import {
-  ConnectionAccessRouteScreen,
-  RootConnectionAccessRouteScreen,
-} from "./features/connection/ConnectionAccessRouteScreen";
 import { HomeRouteScreen } from "./features/home/HomeRouteScreen";
 import { AddProjectDestinationRoute } from "./features/projects/AddProjectDestinationRoute";
 import { AddProjectLocalRoute } from "./features/projects/AddProjectLocalRoute";
@@ -162,13 +158,6 @@ const SettingsContentStack = createNativeStackNavigator({
       linking: "environments",
       options: {
         title: "Environments",
-      },
-    }),
-    SettingsEnvironmentAccess: createNativeStackScreen({
-      screen: ConnectionAccessRouteScreen,
-      linking: "environments/:environmentId/access",
-      options: {
-        title: "Connection Access",
       },
     }),
     SettingsEnvironmentNew: createNativeStackScreen({
@@ -343,7 +332,6 @@ const NewTaskSheetStack = createNativeStackNavigator({
 // influence the adaptive workspace layout: opening Settings over Home should
 // not flip the sidebar in or change the active thread.
 const WORKSPACE_OVERLAY_ROUTES = new Set([
-  "ConnectionAccess",
   "ConnectOnboarding",
   "Connections",
   "ConnectionsNew",
@@ -645,17 +633,6 @@ export const RootStack = createNativeStackNavigator({
               sheetAllowedDetents: [0.55, 0.7],
               sheetGrabberVisible: true,
             }),
-      },
-    }),
-    ConnectionAccess: createNativeStackScreen({
-      screen: RootConnectionAccessRouteScreen,
-      linking: "connections/:environmentId/access",
-      options: {
-        title: "Connection Access",
-        gestureEnabled: true,
-        ...(Platform.OS === "android"
-          ? { presentation: "card" as const, headerShown: false }
-          : GLASS_HEADER_OPTIONS),
       },
     }),
     ConnectionsNew: createNativeStackScreen({
