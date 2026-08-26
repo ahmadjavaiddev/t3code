@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   setRuntimeReady: vi.fn(),
   recordRuntimeHeartbeat: vi.fn(),
   acknowledgeStop: vi.fn(),
-  enabled: true,
+  serviceRequired: true,
   firstAttempt: Promise.resolve(),
   stopListener: null as (() => void) | null,
   removeStopListener: vi.fn(),
@@ -24,7 +24,7 @@ vi.mock("../../native/backgroundConnection", () => ({
     mocks.stopListener = listener;
     return { remove: mocks.removeStopListener };
   },
-  getBackgroundConnectionStatus: () => ({ enabled: mocks.enabled }),
+  getBackgroundConnectionStatus: () => ({ serviceRequired: mocks.serviceRequired }),
   setBackgroundConnectionRuntimeReady: mocks.setRuntimeReady,
   recordBackgroundConnectionRuntimeHeartbeat: mocks.recordRuntimeHeartbeat,
   acknowledgeBackgroundConnectionStop: mocks.acknowledgeStop,
@@ -37,7 +37,7 @@ vi.mock("./background-root", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   vi.resetModules();
-  mocks.enabled = true;
+  mocks.serviceRequired = true;
   mocks.firstAttempt = Promise.resolve();
   mocks.stopListener = null;
 });
@@ -72,8 +72,8 @@ it("shares one runtime across duplicate native task starts and cleans it up once
   expect(mocks.acknowledgeStop).toHaveBeenCalledOnce();
 });
 
-it("cleans up a task that finishes loading after the feature was disabled", async () => {
-  mocks.enabled = false;
+it("cleans up a task that finishes loading after native no longer requires it", async () => {
+  mocks.serviceRequired = false;
   const { runBackgroundConnectionHeadlessTask } = await import("./background-task");
 
   await runBackgroundConnectionHeadlessTask();

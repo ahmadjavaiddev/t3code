@@ -41,12 +41,21 @@ class T3BackgroundConnectionModule : Module() {
       // The battery-optimization request has no result callback. Refreshing on
       // resume makes the settings status reflect the user's choice immediately.
       val context = applicationContext()
-      if (T3BackgroundConnectionState.shouldEnsureStartedOnActivityForeground(context)) {
-        // A visible Activity is an allowed foreground-service start context.
-        // A successful start also cancels any pending recovery alarm.
+      T3BackgroundConnectionState.markApplicationForeground(true)
+      T3BackgroundConnectionState.cancelScheduledRestart(context)
+      T3BackgroundConnectionState.requestOrderlyStop(context)
+      T3BackgroundConnectionState.refreshStatus()
+    }
+
+    OnActivityEntersBackground {
+      val context = applicationContext()
+      T3BackgroundConnectionState.markApplicationForeground(false)
+      if (T3BackgroundConnectionState.shouldEnsureStartedOnActivityBackground(context)) {
+        // Start while the Activity transition still permits a foreground-
+        // service launch. Cold boot and package-update receivers cover starts
+        // that do not have an Activity.
         T3BackgroundConnectionController.ensureStarted(context)
       }
-      T3BackgroundConnectionState.refreshStatus()
     }
 
     Function("getStatus") {
@@ -56,7 +65,7 @@ class T3BackgroundConnectionModule : Module() {
     AsyncFunction("setEnabled") { enabled: Boolean ->
       val context = applicationContext()
       T3BackgroundConnectionState.setEnabled(context, enabled)
-      if (enabled) {
+      if (T3BackgroundConnectionState.isServiceRequired(context)) {
         T3BackgroundConnectionController.ensureStarted(context)
       } else {
         T3BackgroundConnectionState.requestOrderlyStop(context)

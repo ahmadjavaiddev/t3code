@@ -175,10 +175,17 @@ T3 Connect has matching UI and background credential owners. UI ownership wins
 while mounted; a cold headless start restores Clerk's persisted session for the
 same relay runtime. Direct and Tailscale connections do not wait for Clerk.
 
-The service uses a silent ongoing notification, a Headless JS CPU wake lock,
-and a best-effort Wi-Fi lock. It restores an enabled preference after normal
-process reclamation, package replacement, or reboot. Android force-stop remains
-absolute until the user launches the app again.
+The enabled preference arms background protection; it does not keep a second
+runtime active while the Activity is visible. Moving to the background starts
+the service and its silent ongoing notification and Headless JS CPU wake lock.
+The best-effort high-performance Wi-Fi lock is narrower still: it is acquired
+only after the screen turns off and released again on screen-on. Returning to
+the foreground asks the Headless JS task to release its leases, destroys the
+service, and thereby releases all native locks. A bounded native fallback still
+destroys a task that does not acknowledge the transition. The service restores
+an enabled preference after normal process reclamation, package replacement,
+or reboot. Android force-stop remains absolute until the user launches the app
+again.
 
 The Headless JS task records a native heartbeat while it owns the background
 root. Native status treats `serviceRunning` and `runtimeReady` as startup facts,

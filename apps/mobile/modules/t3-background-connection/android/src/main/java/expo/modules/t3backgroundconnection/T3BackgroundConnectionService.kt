@@ -1,33 +1,41 @@
 package expo.modules.t3backgroundconnection
 
-import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
-import android.net.wifi.WifiManager
 import android.os.Build
 import com.facebook.react.HeadlessJsTaskService
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.jstasks.HeadlessJsTaskConfig
 
 class T3BackgroundConnectionService : HeadlessJsTaskService() {
-  private var wifiLock: WifiManager.WifiLock? = null
+  private val screenStateReceiver = object : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent?) {
+      if (intent?.action == Intent.ACTION_SCREEN_ON || intent?.action == Intent.ACTION_SCREEN_OFF) {
+        T3BackgroundConnectionState.refreshDeviceInteractive(context)
+      }
+    }
+  }
+  private var screenStateReceiverRegistered = false
 
   override fun onCreate() {
     super.onCreate()
     T3BackgroundConnectionState.initialize(this)
+    registerScreenStateReceiver()
+    T3BackgroundConnectionState.refreshDeviceInteractive(this)
     startInForeground()
     T3BackgroundConnectionState.markServiceRunning(true)
-    acquireWifiLock()
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    if (!T3BackgroundConnectionState.isEnabled(this)) {
+    if (!T3BackgroundConnectionState.isServiceRequired(this)) {
       stopSelf(startId)
       return Service.START_NOT_STICKY
     }
@@ -47,7 +55,7 @@ class T3BackgroundConnectionService : HeadlessJsTaskService() {
     )
 
   override fun onHeadlessJsTaskFinish(taskId: Int) {
-    val shouldRestart = T3BackgroundConnectionState.isEnabled(this)
+    val shouldRestart = T3BackgroundConnectionState.isServiceRequired(this)
     T3BackgroundConnectionState.releaseTask()
     super.onHeadlessJsTaskFinish(taskId)
     if (shouldRestart) {
@@ -56,7 +64,7 @@ class T3BackgroundConnectionService : HeadlessJsTaskService() {
   }
 
   override fun onDestroy() {
-    releaseWifiLock()
+    unregisterScreenStateReceiver()
     T3BackgroundConnectionState.markServiceRunning(false)
     super.onDestroy()
   }
@@ -133,32 +141,34 @@ class T3BackgroundConnectionService : HeadlessJsTaskService() {
     }.build()
   }
 
-  @SuppressLint("WakelockTimeout")
-  @Suppress("DEPRECATION")
-  private fun acquireWifiLock() {
+  @Suppress("DEPRECATION", "TooGenericExceptionCaught")
+  private fun registerScreenStateReceiver() {
     try {
-      val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-      wifiLock = wifiManager.createWifiLock(
-        WifiManager.WIFI_MODE_FULL_HIGH_PERF,
-        "$packageName:t3-background-connection",
-      ).apply {
-        setReferenceCounted(false)
-        acquire()
+      val filter = IntentFilter(Intent.ACTION_SCREEN_ON).apply {
+        addAction(Intent.ACTION_SCREEN_OFF)
       }
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        registerReceiver(screenStateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+      } else {
+        registerReceiver(screenStateReceiver, filter)
+      }
+      screenStateReceiverRegistered = true
     } catch (_: RuntimeException) {
-      // The lock is best-effort. The foreground task and connection supervisor
-      // remain authoritative on devices that reject or do not expose it.
-      wifiLock = null
+      // Screen-state tuning is best-effort; service lifecycle still releases
+      // the Wi-Fi lock when T3 Code returns to the foreground.
+      screenStateReceiverRegistered = false
     }
   }
 
-  private fun releaseWifiLock() {
+  @Suppress("TooGenericExceptionCaught")
+  private fun unregisterScreenStateReceiver() {
+    if (!screenStateReceiverRegistered) return
     try {
-      wifiLock?.takeIf { it.isHeld }?.release()
+      unregisterReceiver(screenStateReceiver)
     } catch (_: RuntimeException) {
-      // The system may already have released the lock during process teardown.
+      // Android may already have removed the receiver during process teardown.
     } finally {
-      wifiLock = null
+      screenStateReceiverRegistered = false
     }
   }
 

@@ -36,9 +36,10 @@ async function runTask(): Promise<void> {
   // cold React runtime bootstrap and leave the service waiting indefinitely.
   const stopSubscription = addBackgroundConnectionStopRequestListener(requestStop);
   // Native may have stopped the service before this cold JS runtime finished
-  // loading and installed its listener. Treat the persisted disabled state as
-  // the same stop request so that a late task cannot leak its leases.
-  if (!getBackgroundConnectionStatus().enabled) {
+  // loading and installed its listener. A task is no longer required when the
+  // preference was disabled or when the Activity returned to the foreground.
+  // Treat both as a stop request so that a late task cannot leak its leases.
+  if (!getBackgroundConnectionStatus().serviceRequired) {
     requestStop();
   }
   let relayAuth: ReturnType<typeof startBackgroundManagedRelayAuth> | null = null;

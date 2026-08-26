@@ -2,6 +2,7 @@ import type { BackgroundConnectionStatus } from "../../native/backgroundConnecti
 
 export type BackgroundConnectionStatusLabel =
   | "Running"
+  | "Enabled"
   | "Starting"
   | "Stopped"
   | "Connection stalled"
@@ -15,6 +16,9 @@ export function backgroundConnectionStatusLabel(
   }
   if (!status.batteryOptimizationIgnored) {
     return "Battery optimization enabled";
+  }
+  if (!status.serviceRequired) {
+    return "Enabled";
   }
   if (!status.serviceRunning || !status.runtimeReady) {
     return "Starting";

@@ -373,7 +373,9 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
   }));
 
   const handleSelectionChange = useCallback((selection: ComposerEditorSelection) => {
-    setComposerSelection(selection);
+    setComposerSelection((current) =>
+      current.start === selection.start && current.end === selection.end ? current : selection,
+    );
   }, []);
   useEffect(() => {
     const end = props.draftMessage.length;

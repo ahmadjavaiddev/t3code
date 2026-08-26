@@ -1,15 +1,32 @@
 package expo.modules.t3backgroundconnection
 
 internal object T3BackgroundConnectionRecoveryPolicy {
+  fun isServiceRequired(
+    enabled: Boolean,
+    applicationForeground: Boolean,
+  ): Boolean = enabled && !applicationForeground
+
+  fun shouldHoldHighPerformanceWifiLock(
+    enabled: Boolean,
+    serviceRunning: Boolean,
+    applicationForeground: Boolean,
+    deviceInteractive: Boolean,
+  ): Boolean =
+    serviceRunning &&
+      !deviceInteractive &&
+      isServiceRequired(enabled, applicationForeground)
+
   fun shouldScheduleRestartAfterStartFailure(
     batteryOptimizationIgnored: Boolean
   ): Boolean = batteryOptimizationIgnored
 
-  fun shouldEnsureStartedOnActivityForeground(
+  fun shouldEnsureStartedOnActivityBackground(
     enabled: Boolean,
+    applicationForeground: Boolean,
     serviceRunning: Boolean,
     runtimeReady: Boolean
-  ): Boolean = enabled && (!serviceRunning || !runtimeReady)
+  ): Boolean =
+    isServiceRequired(enabled, applicationForeground) && (!serviceRunning || !runtimeReady)
 
   fun isRuntimeHealthy(
     serviceRunning: Boolean,

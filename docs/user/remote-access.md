@@ -42,10 +42,11 @@ Enable **Sync Working Threads** when you also want message updates for threads t
 starting or running. The background connection always retains the lighter thread-list subscriptions;
 the separate working-thread setting controls the more expensive message subscriptions.
 
-The setting works with direct LAN, Tailscale, and T3 Connect environments. Android shows a silent
-ongoing notification while it is enabled, and the extra network activity can increase battery and
-mobile-data use. Allow unrestricted battery use when prompted for more reliable operation while the
-screen is off.
+The setting works with direct LAN, Tailscale, and T3 Connect environments. The visible app owns the
+connection while T3 Code is open. When T3 Code moves to the background, Android starts the separate
+background service and shows its silent ongoing notification. The extra network activity can
+increase battery and mobile-data use. Allow unrestricted battery use when prompted for more
+reliable operation while the screen is off.
 
 The Sync section reports **Connection stalled** if the Android service is present but its JavaScript
 runtime has stopped making progress. Returning to the app then replaces the stale connection and

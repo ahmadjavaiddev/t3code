@@ -14,6 +14,7 @@ vi.mock("expo", () => ({
 const runningStatus = {
   supported: true,
   enabled: true,
+  serviceRequired: true,
   serviceRunning: true,
   runtimeReady: true,
   runtimeHealthy: true,
@@ -33,6 +34,7 @@ describe("backgroundConnection native bridge", () => {
     expect(bridge.getBackgroundConnectionStatus()).toEqual({
       supported: false,
       enabled: false,
+      serviceRequired: false,
       serviceRunning: false,
       runtimeReady: false,
       runtimeHealthy: false,
@@ -84,8 +86,8 @@ describe("backgroundConnection native bridge", () => {
     expect(acknowledgeStop).toHaveBeenCalledOnce();
   });
 
-  it("treats ready legacy runtimes without heartbeat status as healthy", async () => {
-    const { runtimeHealthy: _, ...legacyRunningStatus } = runningStatus;
+  it("normalizes ready legacy runtimes without heartbeat or lifecycle status", async () => {
+    const { runtimeHealthy: _, serviceRequired: __, ...legacyRunningStatus } = runningStatus;
     expoMocks.requireOptionalNativeModule.mockReturnValue({
       getStatus: () => legacyRunningStatus,
     });

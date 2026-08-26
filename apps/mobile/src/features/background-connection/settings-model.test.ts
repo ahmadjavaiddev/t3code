@@ -9,6 +9,7 @@ import {
 const status = (overrides: Partial<BackgroundConnectionStatus>): BackgroundConnectionStatus => ({
   supported: true,
   enabled: true,
+  serviceRequired: true,
   serviceRunning: true,
   runtimeReady: true,
   runtimeHealthy: true,
@@ -24,6 +25,19 @@ describe("backgroundConnectionStatusLabel", () => {
   it("reports startup until both native service and JavaScript are ready", () => {
     expect(backgroundConnectionStatusLabel(status({ runtimeReady: false }))).toBe("Starting");
     expect(backgroundConnectionStatusLabel(status({ serviceRunning: false }))).toBe("Starting");
+  });
+
+  it("reports an enabled foreground connection without expecting the service to run", () => {
+    expect(
+      backgroundConnectionStatusLabel(
+        status({
+          serviceRequired: false,
+          serviceRunning: false,
+          runtimeReady: false,
+          runtimeHealthy: false,
+        }),
+      ),
+    ).toBe("Enabled");
   });
 
   it("reports a ready service whose JavaScript heartbeat stopped", () => {

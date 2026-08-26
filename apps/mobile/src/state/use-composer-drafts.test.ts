@@ -63,6 +63,7 @@ import { appAtomRegistry } from "./atom-registry";
 import {
   clearComposerDraftContentState,
   ComposerDraftPersistenceError,
+  composerDraftAtomForKey,
   composerDraftsAtom,
   copyComposerDraftContentIfEmpty,
   copyComposerDraftContentState,
@@ -226,6 +227,28 @@ describe("mobile composer drafts", () => {
     appAtomRegistry.set(composerDraftsAtom, { [draftKey]: selectedDraft });
 
     expect(getComposerDraftSnapshot(draftKey)).toEqual(selectedDraft);
+  });
+
+  it("keeps one composer snapshot stable when an unrelated draft changes", () => {
+    const selectedKey = "environment-1:thread-selected";
+    const otherKey = "new-task:environment-1:project-other";
+    const selectedDraft = { text: "Selected draft", attachments: [] } satisfies ComposerDraft;
+    appAtomRegistry.set(composerDraftsAtom, { [selectedKey]: selectedDraft });
+    const selectedDraftAtom = composerDraftAtomForKey(selectedKey);
+
+    setComposerDraftText(otherKey, "Other draft");
+
+    expect(appAtomRegistry.get(selectedDraftAtom)).toBe(selectedDraft);
+  });
+
+  it("does not republish duplicate native text events", () => {
+    const draftKey = "environment-1:thread-1";
+    setComposerDraftText(draftKey, "typed");
+    const draftAfterFirstEvent = appAtomRegistry.get(composerDraftsAtom);
+
+    setComposerDraftText(draftKey, "typed");
+
+    expect(appAtomRegistry.get(composerDraftsAtom)).toBe(draftAfterFirstEvent);
   });
 
   it("carries unfinished content to a newly selected project without overwriting its settings", () => {

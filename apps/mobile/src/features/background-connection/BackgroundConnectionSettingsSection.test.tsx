@@ -89,6 +89,7 @@ function status(overrides: Partial<BackgroundConnectionStatus> = {}): Background
   return {
     supported: true,
     enabled: false,
+    serviceRequired: false,
     serviceRunning: false,
     runtimeReady: false,
     runtimeHealthy: false,

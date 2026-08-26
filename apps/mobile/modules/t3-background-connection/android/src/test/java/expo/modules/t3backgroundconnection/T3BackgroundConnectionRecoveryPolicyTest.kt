@@ -6,6 +6,64 @@ import org.junit.Test
 
 class T3BackgroundConnectionRecoveryPolicyTest {
   @Test
+  fun `service is required only for an enabled background application`() {
+    assertTrue(
+      T3BackgroundConnectionRecoveryPolicy.isServiceRequired(
+        enabled = true,
+        applicationForeground = false,
+      ),
+    )
+    assertFalse(
+      T3BackgroundConnectionRecoveryPolicy.isServiceRequired(
+        enabled = true,
+        applicationForeground = true,
+      ),
+    )
+    assertFalse(
+      T3BackgroundConnectionRecoveryPolicy.isServiceRequired(
+        enabled = false,
+        applicationForeground = false,
+      ),
+    )
+  }
+
+  @Test
+  fun `high performance wifi is held only while protecting a screen-off background app`() {
+    assertTrue(
+      T3BackgroundConnectionRecoveryPolicy.shouldHoldHighPerformanceWifiLock(
+        enabled = true,
+        serviceRunning = true,
+        applicationForeground = false,
+        deviceInteractive = false,
+      ),
+    )
+    assertFalse(
+      T3BackgroundConnectionRecoveryPolicy.shouldHoldHighPerformanceWifiLock(
+        enabled = true,
+        serviceRunning = true,
+        applicationForeground = true,
+        deviceInteractive = false,
+      ),
+    )
+    assertFalse(
+      T3BackgroundConnectionRecoveryPolicy.shouldHoldHighPerformanceWifiLock(
+        enabled = false,
+        serviceRunning = true,
+        applicationForeground = false,
+        deviceInteractive = false,
+      ),
+    )
+    assertFalse(
+      T3BackgroundConnectionRecoveryPolicy.shouldHoldHighPerformanceWifiLock(
+        enabled = true,
+        serviceRunning = true,
+        applicationForeground = false,
+        deviceInteractive = true,
+      ),
+    )
+  }
+
+  @Test
   fun `start failure retries only while battery optimization is ignored`() {
     assertTrue(
       T3BackgroundConnectionRecoveryPolicy.shouldScheduleRestartAfterStartFailure(
@@ -20,17 +78,19 @@ class T3BackgroundConnectionRecoveryPolicyTest {
   }
 
   @Test
-  fun `foreground recovers an enabled service that is stopped or not ready`() {
+  fun `background starts an enabled service that is stopped or not ready`() {
     assertTrue(
-      T3BackgroundConnectionRecoveryPolicy.shouldEnsureStartedOnActivityForeground(
+      T3BackgroundConnectionRecoveryPolicy.shouldEnsureStartedOnActivityBackground(
         enabled = true,
+        applicationForeground = false,
         serviceRunning = false,
         runtimeReady = false,
       ),
     )
     assertTrue(
-      T3BackgroundConnectionRecoveryPolicy.shouldEnsureStartedOnActivityForeground(
+      T3BackgroundConnectionRecoveryPolicy.shouldEnsureStartedOnActivityBackground(
         enabled = true,
+        applicationForeground = false,
         serviceRunning = true,
         runtimeReady = false,
       ),
@@ -38,17 +98,27 @@ class T3BackgroundConnectionRecoveryPolicyTest {
   }
 
   @Test
-  fun `foreground leaves a healthy or disabled service alone`() {
+  fun `background leaves a healthy service alone and foreground leaves every service dormant`() {
     assertFalse(
-      T3BackgroundConnectionRecoveryPolicy.shouldEnsureStartedOnActivityForeground(
+      T3BackgroundConnectionRecoveryPolicy.shouldEnsureStartedOnActivityBackground(
         enabled = true,
+        applicationForeground = false,
         serviceRunning = true,
         runtimeReady = true,
       ),
     )
     assertFalse(
-      T3BackgroundConnectionRecoveryPolicy.shouldEnsureStartedOnActivityForeground(
+      T3BackgroundConnectionRecoveryPolicy.shouldEnsureStartedOnActivityBackground(
+        enabled = true,
+        applicationForeground = true,
+        serviceRunning = false,
+        runtimeReady = false,
+      ),
+    )
+    assertFalse(
+      T3BackgroundConnectionRecoveryPolicy.shouldEnsureStartedOnActivityBackground(
         enabled = false,
+        applicationForeground = false,
         serviceRunning = false,
         runtimeReady = false,
       ),

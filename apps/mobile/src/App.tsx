@@ -2,7 +2,7 @@ import { BlurTargetView } from "expo-blur";
 import * as Linking from "expo-linking";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useRef } from "react";
-import { Platform, StatusBar } from "react-native";
+import { StatusBar } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -26,7 +26,6 @@ import { OverlayPortalHost } from "./components/OverlayPortal";
 import { appBlurTargetRef } from "./lib/appBlurTarget";
 import { useThemeColor } from "./lib/useThemeColor";
 import { useMobileNavigationTheme } from "./lib/useMobileNavigationTheme";
-import { ensureBackgroundConnectionStarted } from "./native/backgroundConnection";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "./state/preferences";
 
 import "../global.css";
@@ -63,15 +62,6 @@ function SplashScreenCoordinator() {
   return null;
 }
 
-function BackgroundConnectionServiceCoordinator() {
-  useEffect(() => {
-    if (Platform.OS === "android") {
-      ensureBackgroundConnectionStarted();
-    }
-  }, []);
-  return null;
-}
-
 function ThreadCompletionTrackingCoordinator() {
   const preferencesResult = useAtomValue(mobilePreferencesAtom);
   const savePreferences = useAtomSet(updateMobilePreferencesAtom);
@@ -95,7 +85,6 @@ function ThreadCompletionTrackingCoordinator() {
 export default function App() {
   return (
     <RegistryContext.Provider value={appAtomRegistry}>
-      <BackgroundConnectionServiceCoordinator />
       <ThreadCompletionTrackingCoordinator />
       <CloudAuthProvider>
         <AppearancePreferencesProvider>

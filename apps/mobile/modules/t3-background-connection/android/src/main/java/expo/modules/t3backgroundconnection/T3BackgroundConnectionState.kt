@@ -5,6 +5,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -32,6 +33,8 @@ internal object T3BackgroundConnectionState {
   private val serviceRunning = AtomicBoolean(false)
   private val runtimeReady = AtomicBoolean(false)
   private val taskStarted = AtomicBoolean(false)
+  private val applicationForeground = AtomicBoolean(false)
+  private val deviceInteractive = AtomicBoolean(true)
   private val lastRuntimeHeartbeatAtMs = AtomicLong(0L)
   private val statusListeners = CopyOnWriteArraySet<(Map<String, Any>) -> Unit>()
   private val stopRequestListeners = CopyOnWriteArraySet<() -> Unit>()
@@ -47,6 +50,9 @@ internal object T3BackgroundConnectionState {
 
   @Volatile
   private var stableRuntimeReset: Runnable? = null
+
+  @Volatile
+  private var wifiLock: WifiManager.WifiLock? = null
 
   private var consecutiveUnexpectedFailures = 0
 
@@ -72,6 +78,7 @@ internal object T3BackgroundConnectionState {
     } else {
       resetUnexpectedRestartBackoff()
     }
+    updateHighPerformanceWifiLock()
     emitStatus()
   }
 
@@ -81,6 +88,7 @@ internal object T3BackgroundConnectionState {
     return mapOf(
       "supported" to true,
       "enabled" to isEnabled(context),
+      "serviceRequired" to isServiceRequired(context),
       "serviceRunning" to serviceRunning.get(),
       "runtimeReady" to runtimeReady.get(),
       "runtimeHealthy" to isRuntimeHealthy(),
@@ -88,9 +96,16 @@ internal object T3BackgroundConnectionState {
     )
   }
 
-  fun shouldEnsureStartedOnActivityForeground(context: Context): Boolean =
-    T3BackgroundConnectionRecoveryPolicy.shouldEnsureStartedOnActivityForeground(
+  fun isServiceRequired(context: Context): Boolean =
+    T3BackgroundConnectionRecoveryPolicy.isServiceRequired(
       enabled = isEnabled(context),
+      applicationForeground = applicationForeground.get(),
+    )
+
+  fun shouldEnsureStartedOnActivityBackground(context: Context): Boolean =
+    T3BackgroundConnectionRecoveryPolicy.shouldEnsureStartedOnActivityBackground(
+      enabled = isEnabled(context),
+      applicationForeground = applicationForeground.get(),
       serviceRunning = serviceRunning.get(),
       runtimeReady = runtimeReady.get(),
     )
@@ -129,7 +144,21 @@ internal object T3BackgroundConnectionState {
       cancelStopFallback()
       cancelStableRuntimeReset()
     }
+    updateHighPerformanceWifiLock()
     emitStatus()
+  }
+
+  fun markApplicationForeground(foreground: Boolean) {
+    applicationForeground.set(foreground)
+    updateHighPerformanceWifiLock()
+    emitStatus()
+  }
+
+  fun refreshDeviceInteractive(context: Context) {
+    initialize(context)
+    val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+    deviceInteractive.set(powerManager.isInteractive)
+    updateHighPerformanceWifiLock()
   }
 
   fun markRuntimeReady(ready: Boolean) {
@@ -175,23 +204,24 @@ internal object T3BackgroundConnectionState {
 
     // A claimed task can be creating the React context, or can already own
     // subscriptions while it bootstraps Clerk and persistence. Keep the
-    // service alive long enough for that task to observe the disabled
-    // preference and unwind; only an idle service is safe to stop immediately.
-    // The bounded fallback below still handles a runtime that never responds.
+    // service alive long enough for that task to observe either a disabled
+    // preference or the Activity returning to the foreground and unwind; only
+    // an idle service is safe to stop immediately. The bounded fallback below
+    // still handles a runtime that never responds.
     if (!taskStarted.get()) {
       stopService(context)
       return
     }
 
     mainHandler.post {
-      if (!isEnabled(context)) {
+      if (!isServiceRequired(context)) {
         stopRequestListeners.forEach { listener -> listener() }
       }
     }
 
     val fallback = Runnable {
       stopFallback = null
-      if (isEnabled(context)) return@Runnable
+      if (isServiceRequired(context)) return@Runnable
       runtimeReady.set(false)
       emitStatus()
       stopService(context)
@@ -206,7 +236,7 @@ internal object T3BackgroundConnectionState {
     runtimeReady.set(false)
     lastRuntimeHeartbeatAtMs.set(0L)
     emitStatus()
-    if (!isEnabled(context)) {
+    if (!isServiceRequired(context)) {
       stopService(context)
     }
   }
@@ -230,7 +260,7 @@ internal object T3BackgroundConnectionState {
       Log.w("T3BackgroundConnection", "Could not schedule durable restart alarm", error)
       val restart = Runnable {
         restartFallback = null
-        if (isEnabled(context)) {
+        if (isServiceRequired(context)) {
           T3BackgroundConnectionController.ensureStarted(context)
         }
       }
@@ -240,6 +270,10 @@ internal object T3BackgroundConnectionState {
   }
 
   fun scheduleRestartAfterStartFailure(context: Context) {
+    if (!isServiceRequired(context)) {
+      cancelScheduledRestart(context)
+      return
+    }
     if (
       T3BackgroundConnectionRecoveryPolicy.shouldScheduleRestartAfterStartFailure(
         batteryOptimizationIgnored = isBatteryOptimizationIgnored(context),
@@ -313,6 +347,44 @@ internal object T3BackgroundConnectionState {
     cancelStableRuntimeReset()
   }
 
+  @SuppressLint("WakelockTimeout")
+  @Suppress("DEPRECATION", "TooGenericExceptionCaught")
+  @Synchronized
+  private fun updateHighPerformanceWifiLock() {
+    val context = applicationContext ?: return
+    val shouldHold = T3BackgroundConnectionRecoveryPolicy.shouldHoldHighPerformanceWifiLock(
+      enabled = isEnabled(context),
+      serviceRunning = serviceRunning.get(),
+      applicationForeground = applicationForeground.get(),
+      deviceInteractive = deviceInteractive.get(),
+    )
+    if (!shouldHold) {
+      try {
+        wifiLock?.takeIf { it.isHeld }?.release()
+      } catch (_: RuntimeException) {
+        // Android may release a lock during process or network teardown.
+      } finally {
+        wifiLock = null
+      }
+      return
+    }
+    if (wifiLock?.isHeld == true) return
+    try {
+      val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
+      wifiLock = wifiManager.createWifiLock(
+        WifiManager.WIFI_MODE_FULL_HIGH_PERF,
+        "${context.packageName}:t3-background-connection",
+      ).apply {
+        setReferenceCounted(false)
+        acquire()
+      }
+    } catch (_: RuntimeException) {
+      // Best-effort only: the foreground service and connection supervisor
+      // remain authoritative when a vendor rejects the Wi-Fi lock.
+      wifiLock = null
+    }
+  }
+
   private fun restartPendingIntent(context: Context, creationFlag: Int): PendingIntent? =
     PendingIntent.getBroadcast(
       context.applicationContext,
@@ -337,7 +409,7 @@ internal object T3BackgroundConnectionController {
   fun ensureStarted(context: Context): Boolean {
     val applicationContext = context.applicationContext
     T3BackgroundConnectionState.initialize(applicationContext)
-    if (!T3BackgroundConnectionState.isEnabled(applicationContext)) return false
+    if (!T3BackgroundConnectionState.isServiceRequired(applicationContext)) return false
 
     val intent = Intent(applicationContext, T3BackgroundConnectionService::class.java)
     return try {

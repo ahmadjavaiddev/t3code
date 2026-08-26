@@ -3,6 +3,7 @@ import { NativeModule, requireOptionalNativeModule } from "expo";
 export interface BackgroundConnectionStatus {
   readonly supported: boolean;
   readonly enabled: boolean;
+  readonly serviceRequired: boolean;
   readonly serviceRunning: boolean;
   readonly runtimeReady: boolean;
   readonly runtimeHealthy: boolean;
@@ -31,6 +32,7 @@ export interface BackgroundConnectionSubscription {
 const UNSUPPORTED_STATUS: BackgroundConnectionStatus = {
   supported: false,
   enabled: false,
+  serviceRequired: false,
   serviceRunning: false,
   runtimeReady: false,
   runtimeHealthy: false,
@@ -54,9 +56,14 @@ function normalizeStatus(status: BackgroundConnectionStatus | null | undefined) 
   if (status?.supported !== true) return UNSUPPORTED_STATUS;
   const serviceRunning = status.serviceRunning === true;
   const runtimeReady = status.runtimeReady === true;
+  const enabled = status.enabled === true;
   return {
     supported: true,
-    enabled: status.enabled === true,
+    enabled,
+    // Native builds from before foreground suspension do not expose this
+    // field and expect an enabled service to remain active continuously.
+    serviceRequired:
+      status.serviceRequired === undefined ? enabled : status.serviceRequired === true,
     serviceRunning,
     runtimeReady,
     // Preview binaries published before runtime heartbeats do not include this
