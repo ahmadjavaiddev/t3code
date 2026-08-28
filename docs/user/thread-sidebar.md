@@ -35,9 +35,10 @@ their pinned threads keep the default newest-first order below the ones you have
 
 ## Faster thread opening
 
-Turn on **Sync working threads** in **Settings → General** to keep messages from threads with live
-foreground or background work up to date while that client is open. Threads without live work are
-not synced in the background. The setting is local to each web, desktop, or mobile client.
+The mobile app keeps the selected thread live and loads message history on demand. It does not keep
+full message histories open for every working thread, which avoids background work competing with
+navigation and typing on Android. Web and desktop still offer **Sync working threads** in **Settings
+→ General** for users who want those additional message subscriptions.
 
 ## Environment artwork
 

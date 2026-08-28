@@ -34,13 +34,10 @@ That gives you:
 
 ## Keeping the Android App Connected
 
-On Android, **Keep connected in background** keeps saved environments and their thread lists
-synchronized while the phone is locked or another app is open. Enable it under **Settings** →
-**Sync**.
-
-Enable **Sync Working Threads** when you also want message updates for threads that are currently
-starting or running. The background connection always retains the lighter thread-list subscriptions;
-the separate working-thread setting controls the more expensive message subscriptions.
+On Android, **Keep connected in background** keeps saved environments and their lightweight thread
+lists synchronized while the phone is locked or another app is open. Enable it under **Settings** →
+**Background**. Completion alerts use the same lightweight connection; message histories are loaded
+when you open a thread so the foreground stays responsive and battery use stays predictable.
 
 The setting works with direct LAN, Tailscale, and T3 Connect environments. The visible app owns the
 connection while T3 Code is open. When T3 Code moves to the background, Android starts the separate
@@ -48,7 +45,7 @@ background service and shows its silent ongoing notification. The extra network 
 increase battery and mobile-data use. Allow unrestricted battery use when prompted for more
 reliable operation while the screen is off.
 
-The Sync section reports **Connection stalled** if the Android service is present but its JavaScript
+The Background section reports **Connection stalled** if the Android service is present but its JavaScript
 runtime has stopped making progress. Returning to the app then replaces the stale connection and
 refreshes its subscriptions. Durable background subscriptions also retry without waiting for the app
 to be reopened when only an individual stream is interrupted.
