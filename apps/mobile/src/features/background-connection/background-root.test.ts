@@ -26,7 +26,7 @@ describe("background connection root", () => {
     const { registry } = makeRegistry();
     const releaseRoot = acquireBackgroundConnectionRoot(registry);
 
-    expect(acquireBackgroundThreadSync).toHaveBeenCalledWith(registry);
+    expect(acquireBackgroundThreadSync).toHaveBeenCalledWith(registry, { syncDetails: true });
     expect(acquireLocalCompletionNotifications).toHaveBeenCalledWith(registry);
 
     releaseRoot();

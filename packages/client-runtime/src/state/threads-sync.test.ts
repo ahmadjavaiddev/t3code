@@ -702,18 +702,18 @@ describe("EnvironmentThreads", () => {
 
       yield* Queue.offer(harness.wakeups, "application-active-preserved");
       for (let attempt = 0; attempt < 100; attempt += 1) {
-        if ((yield* Ref.get(harness.subscriptionCount)) >= 4) break;
+        if ((yield* Ref.get(harness.subscriptionCount)) >= 3) break;
         yield* Effect.yieldNow;
       }
-      expect(yield* Ref.get(harness.subscriptionCount)).toBe(4);
+      expect(yield* Ref.get(harness.subscriptionCount)).toBe(3);
       expect((yield* Ref.get(harness.latest)).status).toBe("live");
 
       yield* Queue.offer(harness.wakeups, "application-active-reconnect");
       for (let attempt = 0; attempt < 100; attempt += 1) {
-        if ((yield* Ref.get(harness.subscriptionCount)) >= 5) break;
+        if ((yield* Ref.get(harness.subscriptionCount)) >= 4) break;
         yield* Effect.yieldNow;
       }
-      expect(yield* Ref.get(harness.subscriptionCount)).toBe(5);
+      expect(yield* Ref.get(harness.subscriptionCount)).toBe(4);
       expect((yield* Ref.get(harness.latest)).status).toBe("live");
     }),
   );

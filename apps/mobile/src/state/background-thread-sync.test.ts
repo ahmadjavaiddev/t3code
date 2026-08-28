@@ -120,4 +120,32 @@ describe("background working-thread sync", () => {
     releaseHeadless();
     expect(releasedAtoms).toHaveLength(3);
   });
+
+  it("does not subscribe to full details for the visible UI owner", () => {
+    const { registry, subscribe } = makeRegistry(
+      AsyncResult.success({ syncWorkingThreadMessages: true }),
+      [liveThread],
+    );
+
+    acquireBackgroundThreadSync(registry, { syncDetails: false });
+
+    expect(subscribe).toHaveBeenCalledTimes(2);
+    expect(atoms.detailAtom).not.toHaveBeenCalled();
+  });
+
+  it("adds detail syncing when a headless owner joins a visible owner", () => {
+    const { registry, subscribe } = makeRegistry(
+      AsyncResult.success({ syncWorkingThreadMessages: true }),
+      [liveThread],
+    );
+
+    const releaseVisible = acquireBackgroundThreadSync(registry, { syncDetails: false });
+    expect(subscribe).toHaveBeenCalledTimes(2);
+
+    const releaseHeadless = acquireBackgroundThreadSync(registry, { syncDetails: true });
+    expect(subscribe).toHaveBeenCalledTimes(3);
+
+    releaseHeadless();
+    releaseVisible();
+  });
 });

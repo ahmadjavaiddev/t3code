@@ -19,7 +19,12 @@ export function isApplicationActiveWakeup(reason: ConnectionWakeup): boolean {
 }
 
 export function shouldResubscribeAfterWakeup(reason: ConnectionWakeup): boolean {
-  return isApplicationActiveWakeup(reason);
+  // A preserved wakeup means the supervisor and the Android background
+  // runtime both verified that the existing session is healthy. Replacing
+  // every shell/thread stream here creates a large foreground burst for no
+  // benefit. Actual probes and reconnects still resubscribe so missed events
+  // are recovered when the connection needs attention.
+  return reason !== "application-active-preserved" && isApplicationActiveWakeup(reason);
 }
 
 export class ConnectionWakeups extends Context.Service<
