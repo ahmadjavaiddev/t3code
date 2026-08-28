@@ -2109,6 +2109,37 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
     );
   }
 
+  // Do not mount LegendList until the first detail snapshot is available.
+  // Android's initial end-position/layout pass can temporarily hide all row
+  // containers when a list transitions from empty to filled. Keeping the list
+  // out of that transition avoids the blank feed seen while opening a thread,
+  // while still leaving the header and composer responsive.
+  if (props.contentPresentation.kind === "loading") {
+    return (
+      <ThreadFeedPlaceholder
+        title="Loading conversation…"
+        detail="Syncing the latest messages."
+        topInset={topContentInset}
+        bottomInset={bottomContentInset}
+        horizontalPadding={horizontalPadding}
+      />
+    );
+  }
+
+  // An empty, ready thread has no rows to position. Render the empty state
+  // directly so the list is only mounted when it has actual content.
+  if (props.feed.length === 0 && props.activeWorkStartedAt === null) {
+    return (
+      <ThreadFeedPlaceholder
+        title="No conversation yet"
+        detail="Ask the agent to inspect the repo, run a command, or continue the active thread."
+        topInset={topContentInset}
+        bottomInset={bottomContentInset}
+        horizontalPadding={horizontalPadding}
+      />
+    );
+  }
+
   return (
     <>
       <View className="flex-1" onLayout={handleViewportLayout}>
@@ -2254,19 +2285,6 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
             }}
           />
         </View>
-        {props.feed.length === 0 &&
-        props.activeWorkStartedAt === null &&
-        props.contentPresentation.kind === "ready" ? (
-          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            <ThreadFeedPlaceholder
-              title="No conversation yet"
-              detail="Ask the agent to inspect the repo, run a command, or continue the active thread."
-              topInset={topContentInset}
-              bottomInset={bottomContentInset}
-              horizontalPadding={horizontalPadding}
-            />
-          </View>
-        ) : null}
       </View>
 
       <ImageViewing
