@@ -163,35 +163,14 @@ Application code must not construct RPC clients, retry loops, or raw
 orchestration commands. Persistence paths belong to the platform registration
 and cache stores, with explicit migration or invalidation policy.
 
-### Android background owner
+### Android lifecycle
 
-The opt-in Android foreground service starts the existing mobile runtime through
-React Native Headless JS. Its only data lease mounts the aggregate thread-shell
-atom, which keeps shell subscriptions and caches current for every saved
-environment. The UI and service share the process-wide Atom registry, so they
-still produce one supervisor and one transport per environment.
-
-T3 Connect has matching UI and background credential owners. UI ownership wins
-while mounted; a cold headless start restores Clerk's persisted session for the
-same relay runtime. Direct and Tailscale connections do not wait for Clerk.
-
-The enabled preference arms background protection; it does not keep a second
-runtime active while the Activity is visible. Moving to the background starts
-the service and its silent ongoing notification and Headless JS CPU wake lock.
-The best-effort high-performance Wi-Fi lock is narrower still: it is acquired
-only after the screen turns off and released again on screen-on. Returning to
-the foreground asks the Headless JS task to release its leases, destroys the
-service, and thereby releases all native locks. A bounded native fallback still
-destroys a task that does not acknowledge the transition. The service restores
-an enabled preference after normal process reclamation, package replacement,
-or reboot. Android force-stop remains absolute until the user launches the app
-again.
-
-The Headless JS task records a native heartbeat while it owns the background
-root. Native status treats `serviceRunning` and `runtimeReady` as startup facts,
-not sufficient health evidence: the heartbeat must also be recent. A stale
-heartbeat prevents a resume from being classified as preserved, forcing the
-connection supervisor through its replacement path when the Activity returns.
+The mobile client does not mount a second background owner or a persistent
+foreground service. Android application activation emits the same lifecycle
+wakeups as other clients; the shared supervisor probes a healthy session and
+reconnects only when the suspension was long enough to make the transport
+untrustworthy. This keeps connection ownership and retry work in one runtime,
+which is important for predictable scrolling and text input performance.
 
 ## Verification
 
