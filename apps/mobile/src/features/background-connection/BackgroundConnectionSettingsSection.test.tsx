@@ -78,11 +78,21 @@ function children(node: unknown): ReadonlyArray<unknown> {
   return Array.isArray(value) ? value : [value];
 }
 
+function findSwitch(node: unknown): ElementNode | null {
+  if (node === null || node === undefined) return null;
+  const candidate = node as ElementNode;
+  if (candidate.props?.onValueChange !== undefined) return candidate;
+  for (const child of children(node)) {
+    const found = findSwitch(child);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
 function renderSwitch(): ElementNode {
-  const root = BackgroundConnectionSettingsSection();
-  const section = children(root)[0];
-  const androidRows = children(section)[1];
-  return children(androidRows)[0] as ElementNode;
+  const switchRow = findSwitch(BackgroundConnectionSettingsSection());
+  if (switchRow === null) throw new Error("No background connection switch rendered");
+  return switchRow;
 }
 
 function status(overrides: Partial<BackgroundConnectionStatus> = {}): BackgroundConnectionStatus {

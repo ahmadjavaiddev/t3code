@@ -103,9 +103,6 @@ export function SyncSettingsSection() {
 
   const statusLabel = backgroundConnectionStatusLabel(status);
   const canRetryBatteryExemption = shouldRequestBackgroundConnectionBatteryExemption(status);
-  const syncWorkingThreadMessages =
-    AsyncResult.isSuccess(preferencesResult) &&
-    preferencesResult.value.syncWorkingThreadMessages === true;
   const localCompletionNotificationsEnabled =
     AsyncResult.isSuccess(preferencesResult) &&
     preferencesResult.value.localCompletionNotificationsEnabled === true &&
@@ -138,13 +135,7 @@ export function SyncSettingsSection() {
 
   return (
     <View className="gap-3">
-      <SettingsSection title="Sync">
-        <SettingsSwitchRow
-          icon="arrow.triangle.2.circlepath"
-          label="Sync Working Threads"
-          value={syncWorkingThreadMessages}
-          onValueChange={(value) => savePreferences({ syncWorkingThreadMessages: value })}
-        />
+      <SettingsSection title="Background">
         {Platform.OS === "android" ? (
           <>
             <SettingsSwitchRow
