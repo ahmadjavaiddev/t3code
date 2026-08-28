@@ -3,7 +3,7 @@ import { LegendList, type LegendListRenderItemProps } from "@legendapp/list/reac
 import { useNavigation, type StaticScreenProps } from "@react-navigation/native";
 import { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { AsyncResult } from "effect/unstable/reactivity";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Platform, Pressable, View } from "react-native";
 import { KeyboardController, KeyboardStickyView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -60,7 +60,26 @@ type ProjectTodoListItem =
       readonly last: boolean;
       readonly projectTitle: string;
       readonly todo: ProjectTodo;
-    };
+  };
+
+function projectTodoListItemsAreEqual(
+  previous: ProjectTodoListItem,
+  next: ProjectTodoListItem,
+): boolean {
+  if (previous.kind !== next.kind) return false;
+  if (next.kind === "section" && previous.kind === "section") {
+    return previous.title === next.title && previous.first === next.first;
+  }
+  if (next.kind === "todo" && previous.kind === "todo") {
+    return (
+      previous.todo === next.todo &&
+      previous.projectTitle === next.projectTitle &&
+      previous.first === next.first &&
+      previous.last === next.last
+    );
+  }
+  return false;
+}
 
 export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
   const navigation = useNavigation();
@@ -357,61 +376,61 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
         <AndroidScreenHeader title="Tasks & notes" onBack={() => navigation.goBack()} />
       ) : null}
 
-      <LegendList
-        className="flex-1"
-        contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={{
-          paddingBottom: Math.max(insets.bottom, 18) + 92,
-          paddingHorizontal: 20,
-          paddingTop: 16,
-        }}
-        data={todoStore.isLoading ? [] : todoListItems}
-        drawDistance={300}
-        estimatedItemSize={112}
-        getItemType={(item) => item.kind}
-        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-        keyboardShouldPersistTaps="handled"
-        keyExtractor={(item) => item.key}
-        ListEmptyComponent={
-          todoStore.isLoading ? (
-            <View className="items-center gap-3 py-10">
-              <ActivityIndicator />
-              <Text className="text-sm text-foreground-muted">Loading tasks…</Text>
-            </View>
-          ) : (
-            <EmptyState
-              variant="plain"
-              title={
-                routeScope
-                  ? `No tasks for ${scopedProject?.title ?? "this project"}`
-                  : "No tasks yet"
-              }
-              detail="Tap the compose button to add a task or note."
-            />
-          )
-        }
-        ListHeaderComponent={
-          todoStore.error ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={todoStore.dismissError}
-              className="mb-6 flex-row items-center gap-3 rounded-2xl border border-border bg-subtle p-4"
-            >
-              <SymbolView
-                name="exclamationmark.triangle"
-                size={20}
-                tintColor={dangerColor}
-                type="monochrome"
-              />
-              <Text className="flex-1 text-sm text-danger-foreground">
-                Tasks could not be saved. Tap to dismiss and try again.
-              </Text>
-            </Pressable>
-          ) : null
-        }
-        renderItem={renderTodoListItem}
-        showsVerticalScrollIndicator={false}
-      />
+      {todoStore.isLoading ? (
+        <View className="flex-1 items-center gap-3 py-10">
+          <ActivityIndicator />
+          <Text className="text-sm text-foreground-muted">Loading tasks…</Text>
+        </View>
+      ) : todoListItems.length === 0 ? (
+        <View className="flex-1">
+          <EmptyState
+            variant="plain"
+            title={
+              routeScope ? `No tasks for ${scopedProject?.title ?? "this project"}` : "No tasks yet"
+            }
+            detail="Tap the compose button to add a task or note."
+          />
+        </View>
+      ) : (
+        <LegendList
+          className="flex-1"
+          contentInsetAdjustmentBehavior="automatic"
+          contentContainerStyle={{
+            paddingBottom: Math.max(insets.bottom, 18) + 92,
+            paddingHorizontal: 20,
+            paddingTop: 16,
+          }}
+          data={todoListItems}
+          drawDistance={300}
+          estimatedItemSize={112}
+          getItemType={(item) => item.kind}
+          itemsAreEqual={projectTodoListItemsAreEqual}
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          keyboardShouldPersistTaps="handled"
+          keyExtractor={(item) => item.key}
+          ListHeaderComponent={
+            todoStore.error ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={todoStore.dismissError}
+                className="mb-6 flex-row items-center gap-3 rounded-2xl border border-border bg-subtle p-4"
+              >
+                <SymbolView
+                  name="exclamationmark.triangle"
+                  size={20}
+                  tintColor={dangerColor}
+                  type="monochrome"
+                />
+                <Text className="flex-1 text-sm text-danger-foreground">
+                  Tasks could not be saved. Tap to dismiss and try again.
+                </Text>
+              </Pressable>
+            ) : null
+          }
+          renderItem={renderTodoListItem}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
       {!composerOpen ? (
         <Pressable
@@ -503,7 +522,7 @@ function TodoStatusBadge(props: { readonly status: ProjectTodoStatus }) {
   );
 }
 
-function TodoRow(props: {
+const TodoRow = memo(function TodoRow(props: {
   readonly todo: ProjectTodo;
   readonly projectTitle: string;
   readonly first: boolean;
@@ -582,4 +601,4 @@ function TodoRow(props: {
       </View>
     </ProjectTodoSwipeable>
   );
-}
+});
