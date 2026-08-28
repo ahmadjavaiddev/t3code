@@ -18,10 +18,6 @@ import {
   unregisterAgentAwarenessDeviceForCurrentUser,
 } from "../agent-awareness/remoteRegistration";
 import { clearConnectOnboardingRequest, requestConnectOnboarding } from "./connectOnboarding";
-import {
-  invalidateBackgroundManagedRelayAuth,
-  refreshBackgroundManagedRelayAuth,
-} from "./backgroundManagedRelayAuth";
 import { managedRelaySessionOwnership } from "./managedRelaySessionOwnership";
 import { resolveCloudPublicConfig, resolveRelayClerkTokenOptions } from "./publicConfig";
 
@@ -36,12 +32,9 @@ function resetManagedRelayTokenCache() {
 export function deactivateCloudRelayAccount(
   options: { readonly refreshBackground?: boolean } = {},
 ): void {
+  void options;
   setAgentAwarenessRelayTokenProvider(null);
-  invalidateBackgroundManagedRelayAuth();
   managedRelaySessionOwnership.clear();
-  if (options.refreshBackground !== false) {
-    void refreshBackgroundManagedRelayAuth();
-  }
 }
 
 export function activateCloudRelayAccount(
@@ -53,23 +46,14 @@ export function activateCloudRelayAccount(
     accountId,
     readClerkToken: tokenProvider,
   });
-  void refreshBackgroundManagedRelayAuth();
 }
 
 export function releaseCloudRelayUiAccount(
   options: { readonly refreshAfter?: Promise<void> | null } = {},
 ): void {
+  void options;
   releaseAgentAwarenessRelayTokenProvider();
   managedRelaySessionOwnership.releaseOwner("ui");
-  const refresh = () => {
-    void refreshBackgroundManagedRelayAuth();
-  };
-  const refreshAfter = options.refreshAfter ?? null;
-  if (refreshAfter === null) {
-    refresh();
-  } else {
-    void refreshAfter.then(refresh, refresh);
-  }
 }
 
 function CloudAuthBridge(props: { readonly children: ReactNode }) {

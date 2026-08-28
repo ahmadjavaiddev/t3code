@@ -44,7 +44,7 @@ export interface Preferences {
   readonly legacyThreadListEnabled?: boolean;
   /** Device-local counterpart of desktop's `planModeEnabled` legacy flag. */
   readonly planModeEnabled?: boolean;
-  /** Android-only, device-local alerts emitted by the live background connection. */
+  /** @deprecated Retained so older preference payloads can be read; local alerts are no longer mounted. */
   readonly localCompletionNotificationsEnabled?: boolean;
   /** Undefined preserves the default expanded Settled shelf. */
   readonly threadListV2SettledShelfExpanded?: boolean;

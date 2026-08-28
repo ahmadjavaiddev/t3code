@@ -456,9 +456,22 @@ function isAgentInternalActivity(activity: OrchestrationThreadActivity): boolean
   return !(isTerminalTaskRow && payload.agentKind === "agent");
 }
 
+// Streaming assistant text replaces the thread object frequently, but the
+// activity array is immutable and usually retains its identity. Keep the
+// expensive payload parsing/sorting off that hot path. WeakMap avoids holding
+// completed thread snapshots alive after the client releases them.
+const workLogEntriesCache = new WeakMap<
+  ReadonlyArray<OrchestrationThreadActivity>,
+  DerivedWorkLogEntry[]
+>();
+
 function deriveWorkLogEntries(
   activities: ReadonlyArray<OrchestrationThreadActivity>,
 ): DerivedWorkLogEntry[] {
+  const cached = workLogEntriesCache.get(activities);
+  if (cached !== undefined) {
+    return cached;
+  }
   const ordered = Arr.sort(activities, activityOrder);
   const entries: DerivedWorkLogEntry[] = [];
   for (const activity of ordered) {
@@ -473,7 +486,9 @@ function deriveWorkLogEntries(
     if (isAgentInternalActivity(activity)) continue;
     entries.push(toDerivedWorkLogEntry(activity));
   }
-  return collapseDerivedWorkLogEntries(entries);
+  const result = collapseDerivedWorkLogEntries(entries);
+  workLogEntriesCache.set(activities, result);
+  return result;
 }
 
 function isPlanBoundaryToolActivity(activity: OrchestrationThreadActivity): boolean {
@@ -1703,6 +1718,11 @@ export function buildThreadFeed(
         .map<RawThreadFeedEntry>((entry) => {
           const summary = workEntryHeading(entry);
           const detail = workEntryPreview(entry);
+          // Keep the collapsed timeline cheap to measure. The complete tool
+          // output remains available through getFullDetail when a user opens
+          // the row, but long command output must not inflate a virtualized
+          // row during streaming.
+          const preview = detail && detail.length > 240 ? `${detail.slice(0, 240)}…` : detail;
           const getFullDetail = memoizeValue(() => buildWorkEntryExpandedBody(entry));
           const getCopyText = memoizeValue(() =>
             [summary, detail, getFullDetail()]
@@ -1721,7 +1741,7 @@ export function buildThreadFeed(
               createdAt: entry.createdAt,
               turnId: entry.turnId,
               summary,
-              detail,
+              detail: preview,
               canExpand: workEntryHasExpandedBody(entry),
               getFullDetail,
               getCopyText,

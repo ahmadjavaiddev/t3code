@@ -145,6 +145,10 @@ const WORKING_ROW_VERTICAL_EXTRAS = 24; // py-1 (8) + mb-4 (16)
 // remounts rows when they scroll back into view, and replaying an entrance for
 // old content would be its own kind of jank.
 const FRESH_ENTRY_WINDOW_MS = 3_000;
+// Android pays for every prefetched row on the JS/UI bridge. Keep enough
+// content warm for a smooth fling without eagerly laying out half a screen of
+// markdown and tool payloads that the user cannot see yet.
+const FEED_DRAW_DISTANCE = Platform.OS === "android" ? 240 : 500;
 const threadFeedItemsAreEqual = (previous: ThreadFeedEntry, next: ThreadFeedEntry) =>
   previous === next;
 function isFreshTimestamp(input: string): boolean {
@@ -2231,7 +2235,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
             getFixedItemSize={getFixedItemSize}
             // Measure rows well before they scroll into view so estimate→actual
             // corrections land offscreen instead of under the user's finger.
-            drawDistance={500}
+            drawDistance={FEED_DRAW_DISTANCE}
             keyboardShouldPersistTaps="always"
             keyboardDismissMode="none"
             keyboardLiftBehavior="whenAtEnd"

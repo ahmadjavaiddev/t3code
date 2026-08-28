@@ -1,7 +1,7 @@
 import { BlurTargetView } from "expo-blur";
 import * as Linking from "expo-linking";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { StatusBar } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -9,7 +9,6 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { createStaticNavigation } from "@react-navigation/native";
 
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react";
-import { AsyncResult } from "effect/unstable/reactivity";
 import { ConfirmDialogHost } from "./components/ConfirmDialogHost";
 import { TextInputDialogHost } from "./components/TextInputDialogHost";
 import { CloudAuthProvider } from "./features/cloud/CloudAuthProvider";
@@ -26,7 +25,6 @@ import { OverlayPortalHost } from "./components/OverlayPortal";
 import { appBlurTargetRef } from "./lib/appBlurTarget";
 import { useThemeColor } from "./lib/useThemeColor";
 import { useMobileNavigationTheme } from "./lib/useMobileNavigationTheme";
-import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "./state/preferences";
 
 import "../global.css";
 
@@ -62,30 +60,9 @@ function SplashScreenCoordinator() {
   return null;
 }
 
-function ThreadCompletionTrackingCoordinator() {
-  const preferencesResult = useAtomValue(mobilePreferencesAtom);
-  const savePreferences = useAtomSet(updateMobilePreferencesAtom);
-  const initializedRef = useRef(false);
-
-  useEffect(() => {
-    if (
-      initializedRef.current ||
-      !AsyncResult.isSuccess(preferencesResult) ||
-      preferencesResult.value.threadCompletionTrackingStartedAt
-    ) {
-      return;
-    }
-    initializedRef.current = true;
-    savePreferences({ threadCompletionTrackingStartedAt: new Date().toISOString() });
-  }, [preferencesResult, savePreferences]);
-
-  return null;
-}
-
 export default function App() {
   return (
     <RegistryContext.Provider value={appAtomRegistry}>
-      <ThreadCompletionTrackingCoordinator />
       <CloudAuthProvider>
         <AppearancePreferencesProvider>
           <AppContent />

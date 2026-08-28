@@ -27,7 +27,6 @@ import { AppState } from "react-native";
 
 import { authClientMetadata } from "../lib/authClientMetadata";
 import * as Runtime from "../lib/runtime";
-import { getBackgroundConnectionStatus } from "../native/backgroundConnection";
 import * as MobileStorage from "../persistence/mobile-storage";
 import { appAtomRegistry } from "../state/atom-registry";
 import { clearThreadOutboxEnvironment } from "../state/thread-outbox";
@@ -104,11 +103,7 @@ const wakeupsLayer = Wakeups.layer({
             if (state === "active") {
               Queue.offerUnsafe(
                 queue,
-                mobileApplicationActiveWakeup(
-                  backgroundedAtMs,
-                  Date.now(),
-                  getBackgroundConnectionStatus(),
-                ),
+                mobileApplicationActiveWakeup(backgroundedAtMs, Date.now()),
               );
               backgroundedAtMs = null;
             }

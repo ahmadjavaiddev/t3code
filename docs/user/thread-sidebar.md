@@ -21,9 +21,9 @@ notification to return directly to the completed thread.
 On iOS, **Device Notifications** in **Settings** includes completion alerts from linked
 environments, even while another app is open.
 
-On Android, turn on **Keep connected in background** and **Local completion alerts** in the
-**Sync** settings section. Android posts those alerts directly from the device's live connection;
-they do not use EAS or T3 Connect push delivery.
+On Android, completion alerts use the official T3 Connect device-notification path when the account
+and environment support it. The mobile client does not keep a persistent background connection just
+to watch thread state.
 
 On web and desktop, drag a pinned thread to change its position. On mobile, open the thread's menu
 and choose **Move up** or **Move down**. The order is stored by the server and appears on your
