@@ -1,11 +1,12 @@
 import type { MenuAction } from "@react-native-menu/menu";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
-import { useMemo } from "react";
-import { View } from "react-native";
+import { useMemo, type ReactNode } from "react";
+import { View, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppTextInput as TextInput } from "../../components/AppText";
 import { ComposerAttachmentStrip } from "../../components/ComposerAttachmentStrip";
+import { GlassSurface } from "../../components/GlassSurface";
 import {
   ComposerInlineControl,
   ComposerSelectControl,
@@ -17,14 +18,44 @@ import { ControlPillMenu } from "../../components/ControlPill";
 import { themeColorWithAlpha } from "../../lib/mobileTheme";
 import { useThemeColor } from "../../lib/useThemeColor";
 import type { DraftComposerImageAttachment } from "../../lib/composerImages";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
-import { ComposerSurface } from "../threads/ThreadComposer";
 import {
   PROJECT_TODO_STATUSES,
   projectTodoScopeKey,
   projectTodoStatusLabel,
   type ProjectTodoStatus,
 } from "./project-todos";
+
+/** Keep Tasks/Notes independent from the full thread composer module. */
+function TodoComposerSurface(props: {
+  readonly children: ReactNode;
+  readonly style: ViewStyle;
+}) {
+  const cardColor = useThemeColor("--color-card-translucent");
+  const borderColor = useThemeColor("--color-border");
+  const shadowColor = useThemeColor("--color-primary-shadow");
+  return (
+    <View
+      style={{
+        borderRadius: props.style.borderRadius,
+        elevation: 10,
+        shadowColor,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.12,
+        shadowRadius: 14,
+      }}
+    >
+      <GlassSurface
+        chrome="none"
+        fallbackStyle={{ backgroundColor: cardColor, borderWidth: 1, borderColor }}
+        glassEffectStyle="regular"
+        tintColor="transparent"
+        style={props.style}
+      >
+        {props.children}
+      </GlassSurface>
+    </View>
+  );
+}
 
 export function ProjectTodoComposer(props: {
   readonly canSubmit: boolean;
@@ -46,7 +77,6 @@ export function ProjectTodoComposer(props: {
   readonly onSubmit: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const { themeAppearance } = useAppearancePreferences();
   const sheetColor = String(useThemeColor("--color-sheet"));
   const projectActions = useMemo<MenuAction[]>(
     () =>
@@ -79,9 +109,7 @@ export function ProjectTodoComposer(props: {
       style={{ paddingBottom: Math.max(insets.bottom, 10) }}
       accessibilityLabel={props.isEditing ? "Edit task composer" : "New task composer"}
     >
-      <ComposerSurface
-        animateLayout={false}
-        isDarkMode={themeAppearance === "dark"}
+      <TodoComposerSurface
         style={{
           borderRadius: 26,
           minHeight: 146,
@@ -168,7 +196,7 @@ export function ProjectTodoComposer(props: {
             variant="primary"
           />
         </ComposerToolbarRow>
-      </ComposerSurface>
+      </TodoComposerSurface>
     </View>
   );
 }

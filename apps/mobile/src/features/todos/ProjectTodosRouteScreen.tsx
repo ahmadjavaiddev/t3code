@@ -401,8 +401,10 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
             paddingTop: 16,
           }}
           data={todoListItems}
-          drawDistance={300}
-          estimatedItemSize={112}
+          // Todo rows contain a native swipe handler. Keep only nearby rows
+          // alive so opening and flinging through a long list stay responsive.
+          drawDistance={120}
+          estimatedItemSize={92}
           getItemType={(item) => item.kind}
           itemsAreEqual={projectTodoListItemsAreEqual}
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
@@ -428,6 +430,7 @@ export function ProjectTodosRouteScreen(props: ProjectTodosRouteProps) {
             ) : null
           }
           renderItem={renderTodoListItem}
+          recycleItems
           showsVerticalScrollIndicator={false}
         />
       )}
